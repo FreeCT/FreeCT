@@ -1,0 +1,62 @@
+# Sample parameter file for a FreeCT_ICD reconstruction
+# See "empty_prm.yaml" for a list of all available fields
+
+# Scanner/Reconstruction information
+# - Scanner used is the Siemens Definition AS 64
+# - Reconstruction is for the no-flying-focal-spot, short scan example provided on the website
+# - Reconstruction is initialized from a FreeCT_wFBP reconstruction
+#    if you do not wish to initialize with wFBP, or do not have FreeCT_wFBP installed
+#    change the parameter "wfbp_initialize" to 0. This is a good choice if you do not have
+#    access to a GPU.
+
+# Paths
+sinogram_path: ./n_ffs_short_acr.ptr
+output_dir:    ./
+output_file:   n_ffs_short_acr.img
+
+# Raw data file information
+FileType:        0 
+FileSubType:     0 
+RawOffset:       0
+Readings:        6148
+
+# Scanner Geometry
+# Parameters here are FIXED and should not change from one reconstruction to another
+acquisition_fov:                50.0
+n_channels:                     736
+num_views_per_turn_without_ffs: 1152
+focal_spot_radius:              59.5
+source_detector_distance:       108.56
+anode_angle:                    7.0
+axial_detector_spacing:         0.2189
+axial_focal_spot_shift:         0.0375
+center_channel_non_ffs:         366.25
+center_row:                     7.5
+transaxial_detector_spacing:    0.12858
+transaxial_focal_spot_shift:    0.042698
+
+# Scan specific parameters
+table_feed_per_rotation:    1.92
+Zffs:            0
+Phiffs:          0
+Nrows:           16 
+CollSlicewidth:  1.2
+
+# Recon Geometry
+recon_fov:       25.0 # Diameter of 
+nx:              512
+ny:              512
+slice_thickness: 0.15
+z_start:         -20.16
+z_end:           -15.96
+
+# Iterative recon parameters
+wfbp_initialize:        1
+penalty:                edge-preserving
+lambda:                 0.1
+delta:                  0.005
+system_memory_fraction: 0.75
+num_iterations:         100
+
+
+

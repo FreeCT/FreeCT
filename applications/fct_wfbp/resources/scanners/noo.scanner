@@ -1,0 +1,14 @@
+% Frederic Noo's simulated Sensation 64 %
+% These scanner files are intended as examples %
+% All physical units are in millimeters or radians %
+
+RSrcToIso:		570.0
+RSrcToDet:		1040.0
+AnodeAngle:		0.1222
+FanAngleInc:		0.0014
+ThetaCone:		0.0197
+CentralChannel:		335.25
+NProjTurn:		1160
+NChannels:		672
+ReverseRowInterleave:	0
+ReverseChanInterleave:	0

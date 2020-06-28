@@ -1,0 +1,14 @@
+% Geometry file for Siemens Force scanner %
+% These scanner files are intended as examples %
+% All physical units are in millimeters or radians %
+
+RSrcToIso:		595.0
+RSrcToDet:		1085.6
+AnodeAngle:		0.1396 % 8 degrees
+FanAngleInc:		0.00094729
+ThetaCone:		0.094719
+CentralChannel:		457.25
+NProjTurn:		1400
+NChannels:		920
+ReverseRowInterleave:	0
+ReverseChanInterleave:	0

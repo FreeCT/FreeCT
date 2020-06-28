@@ -1,0 +1,7 @@
+0: Binary
+1: DefinitionAS PTR
+2: Sensation64 CTD v1794
+3: Sensation64 CTD v2007
+4: IMA wrapped 1, 2, or 3
+5: Force PTR
+6: Open format dicom (do not use currently)

@@ -1,0 +1,14 @@
+% Geometry file for Siemens Definition AS scanner %
+% These scanner files are intended as examples %
+% All physical units are in millimeters or radians %
+
+RSrcToIso: 	        595.0
+RSrcToDet:		1085.6
+AnodeAngle:		0.1222
+FanAngleInc:		0.0011844
+ThetaCone:		0.030249
+CentralChannel:		366.25
+NProjTurn:		1152
+NChannels:		736
+ReverseRowInterleave:	0
+ReverseChanInterleave:  0

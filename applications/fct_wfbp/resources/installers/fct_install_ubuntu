@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# Identify who called the script since $USER is root
+calling_user=$(who am i | awk '{print $1}')
+
+printf "\n"
+
+echo "------------------------------------------------------"
+echo "|    Welcome to FreeCT's Ubuntu/Debian installer!    |"
+echo "------------------------------------------------------"
+printf "\n"
+echo "Before continuing, ensure that you have installed the CUDA"
+echo "Toolkit, version 6.5 or later and properly configured your"
+echo "the following environment variables with the proper CUDA"
+echo "directories:"
+printf "\n"
+echo "        LD_LIBRARY_PATH"
+echo "        PATH"
+echo "        MANPATH"
+printf "\n"
+echo "The build and installation of FreeCT software will not work"
+echo "if the CUDA paths are not properly configured."
+printf "\n"
+echo "If you are not sure, please follow the instructions found at:"
+echo "  http://docs.nvidia.com/cuda/cuda-getting-started-guide-for-linux/#environment-setup"
+printf "\n"
+
+
+read -p "I have installed and configured CUDA (y/n):" -n 1 -r
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    echo es
+    echo "Downloading reader library and wfbp source code from Github..."
+    
+    # Download the Reader source code and WFBP source code from Github
+    mkdir -p /home/${calling_user}/Downloads/FCT_SRC
+    cd /home/${calling_user}/Downloads/FCT_SRC/
+    wget https://github.com/FreeCT/FreeCT_Reader/archive/master.zip
+    mv master.zip reader_master.zip
+    wget https://github.com/FreeCT/FreeCT_WFBP/archive/master.zip
+    mv master.zip wfbp_master.zip
+
+    unzip -q reader_master.zip # unzips into FreeCT_Reader-master.zip
+    unzip -q wfbp_master.zip # unzips into FreeCT_WFBP-master.zip
+
+    printf "\n\n"
+
+    # Check for libfftw3-3 and install if not found.
+    echo "Checking for libfftw3-3..."
+    printf "\n"
+    if  [ "$(dpkg-query -W -f='${Status}\n' libfftw3-dev)" != "install ok installed" ]
+    then
+	sudo apt-get install libfftw3-dev
+    else
+	echo "FFTW3 found.  Patching..."
+    fi
+
+    # Overwrite the default libfftw3-3's header file (assumes default installation)
+    # This will be modified to a patch in the future, but this is the best we've got
+    # right now.
+    sudo cp -f FreeCT_WFBP-master/resources/patches/fftw3.h /usr/include/
+
+    # Build and install READER
+    echo "Building and installing FreeCT Reader library"
+    printf "\n"
+    
+    cd FreeCT_Reader-master
+    make
+    if [ "$?" -ne 0 ]
+    then
+	echo "There was an error building FreeCT_Reader."
+	exit 1;
+    fi
+    
+    sudo make install
+    if [ "$?" -ne 0 ]
+    then
+	echo "There was an error installing FreeCT_Reader."
+	exit 1;
+    fi
+
+    # Build and install WFBP code
+    printf "\n\n"
+    echo "Building and installing FreeCT WFBP"
+    printf "\n"
+
+    echo $PATH
+    
+    cd ../FreeCT_WFBP-master
+    make
+    if [ "$?" -ne 0 ]
+    then
+	echo "There was an error building FreeCT_WFBP."
+	exit 1;
+    fi
+    
+    sudo make install
+    if [ "$?" -ne 0 ]
+    then
+	echo "There was an error installing FreeCT_WFBP."
+	exit 1;
+    fi
+    
+    printf "\n"
+    echo "FreeCT_Reader and FreeCT_WFBP seem to have installed correctly!"
+    echo "Type 'fct_wfbp --help' at the command line for a quick help,"
+    echo "and visit FreeCT's website for further information."
+    printf "\n"
+    echo "Thanks for using FreeCT!"
+
+    rm -rf /home/${calling_user}/Downloads/FCT_SRC/
+    
+else
+    echo o
+    exit 1;
+fi

@@ -1,0 +1,56 @@
+# Empty parameter file for a FreeCT_ICD reconstruction
+# All units are CM, Radians, pixel units (unitless)
+# Config file syntax is YAML (http://yaml.org/) (i.e. no tabs)
+
+# Paths
+sinogram_path:      # Required, full path to raw projection data file
+output_dir:         # Required, full path to output directory
+output_file:        # Required, filename for final reconstruction file
+initial_recon_path: # Optional, full path to reconstruction file
+matrix_path:        # Optional, full path to existing stored matrix file
+
+# Raw data file information
+FileType:        # Required, choices are 0,1, or 4. 0: binary file; 1: Siemens PTR file; 4: Siemens IMA file
+FileSubType:     # Required, (if using IMA format). Specifies format of IMA-wrapped file.
+RawOffset:       # Required, offset in bytes to beginning of raw projection data (Note, this is often just 0)
+Readings:        # Required, total number of projections in raw data file to be reconstructed
+
+# Scanner Geometry
+# Parameters here are FIXED and should not change from one reconstruction to another
+acquisition_fov:                # Required, scanner FOV in cm
+n_channels:                     # Required, number of detector channels
+num_views_per_turn_without_ffs: # Required, number of projections per gantry rotation
+focal_spot_radius:              # Required, distance from focal spot to isocenter
+source_detector_distance:       # Required, distance from focal spot to detector center
+anode_angle:                    # Required (for flying focal spot scans), anode angle 
+axial_detector_spacing:         # Required, detector spacing in CM AT THE DETECTOR in the Z direction (i.e. row separation)
+axial_focal_spot_shift:         # Required (for flying focal spot scans), Z direction shift in CM of focal spot
+center_channel_non_ffs:         # Required, central detector index (accounting for any quarter detector offset, if present)
+center_row:                     # Required, central row index (where line connecting source and isocenter intercepts detector plane)
+transaxial_detector_spacing:    # Required, detector spacing in CM AT THE DETECTOR in the axial plane (i.e. channel separation)
+transaxial_focal_spot_shift:    # Required (for flying focal spot scans), x-y direction shift in CM of focal spot
+
+# Scan specific parameters
+table_feed_per_rotation:    # Required, table feed in CM per rotation
+Zffs:                       # Required, 0 if no Z flying focal spot, 1 if Z flying focal spot used (Note: as of 2017-08-18, FreeCT_ICD does not reconstruct data with flying focal spots)
+Phiffs:                     # Required, 0 if no Phi (in-plane) flying focal spot, 1 if Phi flying focal spot used (Note: as of 2017-08-18, FreeCT_ICD does not reconstruct data with flying focal spots)
+Nrows:                      # Required, width of detector row at isocenter (note, this is the first number given in the collimation i.e. 16x1.2)
+CollSlicewidth:             # Required, width of detector row at isocenter (note, this is the second number given in the collimation i.e. 16x1.2)
+
+# Recon Geometry
+recon_fov:       # Required, field of view in CM of the reconstruction (i.e. reconstruction diameter)
+nx:              # Required, number of pixels in x-direction (i.e. width)
+ny:              # Required, number of pixels in y-direction (i.e. height)
+slice_thickness: # Required, slice thickness in CM (NOTE: Due to rotation slices approach, not all slice thickness are possible. See Xu et al. Phys. Med. Biol., 2012)
+z_start:         # Required, slice location of the first slice in the reconstruction stack
+z_end:           # Required, slice location of the last slice in the reconstruction stack
+
+# Iterative recon parameters
+wfbp_initialize:        # Required, 0 or 1. 1: Perform a WFBP reconstruction prior to running ICD iterations. 0: initialize reconstruction from all zeros.
+penalty:                # Required, string specifying penalty function to use. Choices are quadratic (default) or edge-preserving
+lambda:                 # Required, iteration reconstruction parameter. Default value is 0.1
+delta:                  # Required, edge-preserving parameter. Default value is 0.005
+system_memory_fraction: # Currently not used. May be utilized in a future release
+num_iterations:         # Required, number of ICD iteration to perform. W/ wFBP initialization, 50 is common. W/O wFBP initialization, 100-150 iterations typically required
+
+
