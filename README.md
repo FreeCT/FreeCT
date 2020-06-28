@@ -13,6 +13,8 @@ please reach out to John at johnmarianhoffman@gmail.com.
 
 All "timelines" provided below are best guess estimates and are subject to change.
 
+The existing FreeCT repositories will be FROZEN to support anyone who has been previously using them (although we apologize for any breaking changes we have made in the last few weeks), and no further work will be done to support them.  Many of the upcoming changes will break backwards compatibility in the effort to concentrate our support on the TCIA LDCT data set first and foremost, since it has the widest availability.
+
 ## Near-term work to enable use on TCIA datasets:
 Short-term goal is to get SOMETHING running for the LDCT dataset.  This primarily involves modifications to the reader library and "setup" components of the FreeCT_wFBP packages.  ICD will eventually be ported, however we do not have a timeline for that.
 
