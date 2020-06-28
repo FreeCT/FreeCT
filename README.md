@@ -32,6 +32,7 @@ Timeline for work: 2 - 6 months
 
 * Migrate all project components (Reader, WFBP, ICD) into a single repository (this repository) with a unified build process
 * Unified configuration file structure/parsing framework
+* Packaging of the project Ubuntu (and potentially other high-use OSes)
 
 (updated on 2020/06/28)
 
