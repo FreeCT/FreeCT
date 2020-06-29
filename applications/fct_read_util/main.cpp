@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 
-#include <FreeCTRead.h>
+#include <fct/FreeCTRead.h>
 
 #include <boost/filesystem.hpp>
 

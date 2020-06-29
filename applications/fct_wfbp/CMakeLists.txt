@@ -10,5 +10,8 @@ find_package(FFTW3 REQUIRED)
 
 file(GLOB SOURCES src/*.cu)
 add_executable(fct_wfbp ${SOURCES})
-target_include_directories(fct_wfbp PRIVATE include/ ${FFTW3_INCLUDE_DIRS})
-target_link_libraries(fct_wfbp PRIVATE ${FFTW3_LIBRARIES})
+add_dependencies(fct_wfbp fct_read)
+
+message("${INCLUDE_DIRS}")
+target_include_directories(fct_wfbp PRIVATE include/ ${INCLUDE_DIRS} ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(fct_wfbp PRIVATE ${FFTW3_LIBRARIES} yaml-cpp)

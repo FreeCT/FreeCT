@@ -28,8 +28,24 @@
     std::cout << #TAG_NAME": " ;                                      \
     for (int i=0; i< 35-sizeof(#TAG_NAME);i++){std::cout << " ";}     \
     rp->TAG_NAME=config[#TAG_NAME].as<TYPE>();                        \
-    std::cout << "FOUND "  << std::endl;                              \
+    std::cout << "FOUND ("  <<  rp->TAG_NAME << ")"  <<std::endl;           \
     }catch(YAML::RepresentationException& e){std::cout << "NOT FOUND" << std::endl;}
+
+namespace{
+  void parse_string(std::string tagname, std::string& value, YAML::Node& config){
+    try{
+      std::cout << tagname + ": " ;                                      
+      for (int i=0; i< 35-tagname.length();i++){
+        std::cout << " ";
+      }     
+      value=config[tagname].as<std::string>();
+      std::cout << "FOUND ("  <<  value << ")"  << std::endl;
+    }
+    catch(YAML::RepresentationException& e){
+      std::cout << "NOT FOUND" << std::endl;
+    }    
+  }
+}
 
 void parse_config(std::string config_file, struct recon_params * rp){
     // Load our YAML config file
@@ -37,67 +53,28 @@ void parse_config(std::string config_file, struct recon_params * rp){
     YAML::Node config = YAML::LoadFile(config_file);
     std::cout << std::endl;
 
-    // Pertinent paths block
-    parse_item(initial_recon_path,std::string);
-    parse_item(matrix_path,std::string);
-    parse_item(output_dir,std::string);
-    parse_item(output_file,std::string);
-    parse_item(potential,std::string);
-    parse_item(recon_path,std::string);
-    parse_item(sinogram_path,std::string);
-
-    // Scanner Geometry
-    parse_item(acquisition_fov,double);
-    parse_item(anode_angle,double);
-    parse_item(axial_detector_spacing,double);
-    parse_item(axial_focal_spot_shift,double);
-    parse_item(center_channel_non_ffs,double);
-    parse_item(center_row,double);
-    parse_item(focal_spot_radius,double);
-    parse_item(n_channels,size_t);
-    parse_item(num_views_per_turn_without_ffs,size_t);
-    parse_item(source_detector_distance,double);
-    parse_item(transaxial_detector_spacing,double);
-    parse_item(transaxial_focal_spot_shift,double);
-    parse_item(fan_angle_increment,double);
-
-    // Iterative Recon parameters
-    parse_item(penalty,std::string);
-    parse_item(lambda,double);
-    parse_item(delta,double);
-    parse_item(num_iterations,size_t);
-    parse_item(num_views_for_system_matrix,size_t);
-
-    // Scan specific parameters
-    parse_item(first_view_angle,double);
-    parse_item(num_z_ffs,size_t);
-    parse_item(num_phi_ffs,size_t);
-    parse_item(num_views,size_t);
-    parse_item(table_feed_per_rotation,double);
-    parse_item(tube_angle_increment,double);
-    parse_item(z_end,double);
-    parse_item(z_first_view,double);
-    parse_item(z_good_slice,double);
-    parse_item(z_matrix_start,double);
-    parse_item(z_start,double);
-
-    // Recon Geometry
+    //parse_item(raw_data_dir,std::string);
+    std::string tmp;
+    parse_string("raw_data_dir",tmp,config);
+    strcpy(rp->raw_data_dir,tmp.c_str());
+    parse_string("output_dir",tmp,config);
+    strcpy(rp->output_dir,tmp.c_str());
+    //parse_item(output_dir,std::string);
+    
+    parse_item(start_pos,float);
+    parse_item(end_pos,float);
     parse_item(recon_fov,double);
+    parse_item(slice_thickness,double);
     parse_item(nx,size_t);
     parse_item(ny,size_t);
-    parse_item(slice_thickness,double);
+    parse_item(recon_kernel,int);
 
-    // John's Additions
-    parse_item(FileType,size_t);
-    parse_item(FileSubType,size_t);
-    parse_item(RawOffset,size_t);
-    parse_item(Readings,size_t);
-    parse_item(Zffs,size_t);
-    parse_item(Phiffs,size_t);
-    parse_item(CollSlicewidth,double);
-    parse_item(Nrows,size_t);
-    parse_item(wfbp_initialize,size_t);
+    parse_item(x_origin,float);
+    parse_item(y_origin,float);
 
+    parse_item(tube_start_angle,float);
+    parse_item(adaptive_filtration_s,float);
+    
     // Deprecated
     // ========================================
     // parse_item(dx,double);
