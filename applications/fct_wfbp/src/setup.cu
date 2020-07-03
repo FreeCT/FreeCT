@@ -41,8 +41,8 @@ int configure_paths(struct recon_metadata *mr){
     
     /* --- Get working directory and User's home directory --- */
     struct passwd *pw=getpwuid(getuid());    
-    const char * home_dir=pw->pw_dir;
-    strcpy(mr->home_dir,home_dir);
+    //const char * home_dir=pw->pw_dir;
+    //strcpy(mr->home_dir,home_dir);
     getcwd(mr->cwd,4096*sizeof(char));
 
     /* --- Get where the executable is running ---*/
@@ -68,7 +68,7 @@ int configure_paths(struct recon_metadata *mr){
     }
 
     // Cleanup directory strings
-    remove_trailing_slash(mr->home_dir);
+    //remove_trailing_slash(mr->home_dir);
     remove_trailing_slash(mr->install_dir);
     remove_trailing_slash(mr->cwd);    
     remove_trailing_slash(mr->rp.output_dir);

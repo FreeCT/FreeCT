@@ -77,7 +77,8 @@ namespace fct{
 
     void setPath(std::string path);
     virtual void readAll() = 0;
-    void writeAll(std::string filepath);
+    void writeReconFile(std::string filepath);
+    void writeAll(std::string dirpath);
 
     void printMetadata();
     

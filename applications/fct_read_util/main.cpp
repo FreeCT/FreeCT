@@ -20,6 +20,7 @@ int main(int argc, char ** argv){
   
   std::string input_dirpath = "";
   std::string output_dirpath = "";
+  std::string recon_filepath = "";
   
   // Parse command line arguments
   if (argc<5){
@@ -37,7 +38,10 @@ int main(int argc, char ** argv){
       
     else if (arg=="-o")
       output_dirpath = argv[++i];
-    
+
+    else if (arg=="-r")
+      recon_filepath = argv[++i];
+      
     else{
       std::string message = "Unrecognized option \"" + std::string(argv[i]) +  "\" requested";
       error_out(message);
@@ -49,8 +53,8 @@ int main(int argc, char ** argv){
     std::string message = "Input path must be set!";
     error_out(message);
   }
-  if (output_dirpath==""){
-    std::string message = "Output path must be set!";
+  if (output_dirpath=="" && recon_filepath==""){
+    std::string message = "Output path or recon_filepath must be set!";
     error_out(message);
   }
 
@@ -60,7 +64,7 @@ int main(int argc, char ** argv){
     exit(1);
   }
 
-  if (!boost::filesystem::exists(output_dirpath)){
+  if (output_dirpath!="" && !boost::filesystem::exists(output_dirpath)){
     std::cout << "Could not find output dirpath: " << output_dirpath << std::endl;
     exit(1);
   }
@@ -71,14 +75,14 @@ int main(int argc, char ** argv){
   // Runtime polymorphism to eventually support multiple raw data formats
   std::unique_ptr<fct::RawDataSet> ds = std::make_unique<fct::DicomDataSet>();
 
-  //fct::RawDataSet * ds;
-  //fct::DicomDataSet dicom_ds;
-  //ds = &dicom_ds;
-
   ds->setPath(input_dirpath);
   ds->readAll();
 
-  ds->writeAll(output_dirpath);
+  if (recon_filepath!="")
+    ds->writeReconFile(recon_filepath);
+  
+  if (output_dirpath!="")
+    ds->writeAll(output_dirpath);
 
   return 0;
 }

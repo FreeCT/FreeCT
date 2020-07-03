@@ -30,8 +30,8 @@ namespace fct{
     ye << YAML::Comment("SCANNER GEOMETRY");
     ye << YAML::Key << "distance_source_to_detector" << YAML::Value << m_dist_source_to_detector;
     ye << YAML::Key << "distance_source_to_isocenter" << YAML::Value << m_dist_source_to_isocenter;
-    ye << YAML::Key << "detector_central_row" << m_detector_central_row;
-    ye << YAML::Key << "detector_central_channel" << m_detector_central_channel;
+    ye << YAML::Key << "detector_central_row" <<  YAML::Value << m_detector_central_row;
+    ye << YAML::Key << "detector_central_channel" << YAML::Value <<  m_detector_central_channel;
     ye << YAML::Key << "projection_geometry" << YAML::Value << m_projection_geometry;
     
     ye << YAML::Newline << YAML::Newline;
@@ -43,6 +43,37 @@ namespace fct{
     ye << YAML::Key << "total_num_projections" <<  YAML::Value << m_total_num_projections;
     ye << YAML::EndMap;    
   };
+
+  void RawDataSet::writeReconFile(std::string filepath){
+    // We pick some "sane" defaults (could likely be improved based on data we can get out of
+    // DICOM.  Will look more into this in the future.)
+    //RawDataFrame start = (*m_data.front());
+    //RawDataFrame end = (*m_data.back());
+    
+    YAML::Emitter ye;
+
+    ye << YAML::BeginMap;
+    ye << YAML::Key << "raw_data_dir" << YAML::Value << m_path;
+    ye << YAML::Key << "output_dir" << YAML::Value << "./" ;
+    ye << YAML::Key << "start_pos" << YAML::Value << m_data.front()->getDFCAxialPosition();
+    ye << YAML::Key << "end_pos" << YAML::Value << m_data.back()->getDFCAxialPosition();
+    ye << YAML::Key << "recon_fov" << YAML::Value << 500.0f;
+    //ye << YAML::Key << "slice_thickness" << YAML::Value << m_detector_transverse_spacing;
+    //ye << YAML::Key << "slice_thickness" << YAML::Value << m_detector_axial_spacing;
+    ye << YAML::Key << "slice_thickness" << YAML::Value << 1.0f;
+    ye << YAML::Key << "nx" << YAML::Value << 512;
+    ye << YAML::Key << "ny" << YAML::Value << 512;
+    ye << YAML::Key << "recon_kernel" << YAML::Value << 3;
+    ye << YAML::Key << "x_origin" << YAML::Value << 0.0f;
+    ye << YAML::Key << "y_origin" << YAML::Value << 0.0f;
+    ye << YAML::Key << "tube_start_angle" << YAML::Value << 0.0f;
+    ye << YAML::Key << "adaptive_filtration_s" << YAML::Value << 0.2f;
+    
+    ye << YAML::EndMap;
+
+    std::ofstream ofs_recon(filepath);
+    ofs_recon << ye.c_str() << std::endl;
+  }
 
   void RawDataSet::writeAll(std::string dirpath){
     // Emit YAML metadata and save to disk

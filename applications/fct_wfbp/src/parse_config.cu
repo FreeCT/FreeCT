@@ -68,10 +68,8 @@ void parse_config(std::string config_file, struct recon_params * rp){
     parse_item(nx,size_t);
     parse_item(ny,size_t);
     parse_item(recon_kernel,int);
-
     parse_item(x_origin,float);
     parse_item(y_origin,float);
-
     parse_item(tube_start_angle,float);
     parse_item(adaptive_filtration_s,float);
     
