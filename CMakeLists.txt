@@ -35,11 +35,11 @@ ENDIF(DCMTK_FOUND)
 set(INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/modules/fct_read/include/ ${DCMTK_INCLUDE_DIRS})
 
 #debug
-#get_cmake_property(_variableNames VARIABLES)
-#list (SORT _variableNames)
-#foreach (_variableName ${_variableNames})
-#    message(STATUS "${_variableName}=${${_variableName}}")
-#endforeach()
+get_cmake_property(_variableNames VARIABLES)
+list (SORT _variableNames)
+foreach (_variableName ${_variableNames})
+    message(STATUS "${_variableName}=${${_variableName}}")
+endforeach()
 
 add_subdirectory(modules)
 add_subdirectory(applications)

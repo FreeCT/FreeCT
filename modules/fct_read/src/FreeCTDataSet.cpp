@@ -21,6 +21,11 @@ namespace fct{
     return true;
   }
 
+  void FreeCTDataSet::readMetadata(){
+    std::cout << "This is not yet implemented!" << std::endl;
+    exit(1);
+  }
+
   void FreeCTDataSet::readAll(){
 
     std::string meta_filepath = m_path + "/" + "meta.yaml";

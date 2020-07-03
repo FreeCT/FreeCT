@@ -76,12 +76,36 @@ namespace fct{
     ~RawDataSet(){};
 
     void setPath(std::string path);
+
+    virtual void initialize() = 0;
+    virtual void readMetadata() = 0;
+    virtual void readProjection(int projection_idx) = 0;
     virtual void readAll() = 0;
+
     void writeReconFile(std::string filepath);
     void writeAll(std::string dirpath);
 
     void printMetadata();
-    
+
+    std::string getManufacturer()              {return m_manufacturer;};           // "SIEMENS" or "GE"    
+    uint16_t    getDetectorRows()              {return m_detector_rows;};
+    uint16_t    getDetectorChannels()          {return m_detector_channels;}
+    float       getDetectorTransverseSpacing() {return m_detector_transverse_spacing;};
+    float       getDetectorAxialSpacing()      {return m_detector_axial_spacing;};
+    std::string getDetectorShape()             {return m_detector_shape;};         // "CYLINDRICAL" "SPHERICAL" or "FLAT"    
+    float       getDistSourceToDetector()      {return m_dist_source_to_detector;};
+    float       getDistSourceToIsocenter()     {return m_dist_source_to_isocenter;};
+    float       getDetectorCentralRow()        {return m_detector_central_row;};
+    float       getDetectorCentralChannel()    {return m_detector_central_channel;};
+    std::string getScanType()                  {return m_scan_type;};              // AXIAL or HELICAL
+    std::string getProjectionGeometry()        {return m_projection_geometry;}    // "FANBEAM"
+    std::string getFlyingFocalSpotMode()       {return m_flying_focal_spot_mode;};    
+    uint16_t    getProjectionsPerRotation()    {
+      std::cout << "Is projections per rotation automatically adjusted in TCIA???" << std::endl;
+      return m_projections_per_rotation;
+    };
+    uint16_t    getTotalNumProjections()       {return m_total_num_projections;}
+
   protected:
 
     friend class RawDataFrame;

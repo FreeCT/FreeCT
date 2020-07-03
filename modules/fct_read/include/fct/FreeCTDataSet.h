@@ -8,7 +8,9 @@ namespace fct{
   };
   
   class FreeCTDataSet: public RawDataSet{
-    
+    virtual void intialize();
+    virtual void readMetadata();
+    virtual void readProjection(int projection_idx);
     virtual void readAll();
   };
   

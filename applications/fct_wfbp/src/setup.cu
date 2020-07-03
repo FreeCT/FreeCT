@@ -30,6 +30,8 @@
 #include <parse_config.h>
 #include <fct/FreeCTRead.h>
 
+#include <memory>
+
 #define pi 3.1415926535897f
 #define BLOCK_SLICES 32
 
@@ -128,34 +130,34 @@ struct recon_params configure_recon_params(char * filename){
     // Perform some sanity checks to make sure that we have read in the "essentials"
     // Bail if critical values are zero
     int exit_flag=0;
-    if (prms.n_rows==0){
-	printf("Nrows was not properly set in configuration.  Check parameter file.\n");
-	exit_flag=1;
-    }
-    if (prms.coll_slicewidth==0){
-	printf("CollSlicewidth was not properly set in configuration.  Check parameter file.\n");
-	exit_flag=1;
-    }
+    //if (prms.n_rows==0){
+    //    printf("Nrows was not properly set in configuration.  Check parameter file.\n");
+    //    exit_flag=1;
+    //}
+    //if (prms.coll_slicewidth==0){
+    //    printf("CollSlicewidth was not properly set in configuration.  Check parameter file.\n");
+    //    exit_flag=1;
+    //}
     if (prms.slice_thickness==0){
 	printf("SliceThickness was not properly set in configuration.  Check parameter file.\n");
 	exit_flag=1;
     }
-    if (prms.pitch_value==0){
-	printf("PitchValue was not properly set in configuration.  Check parameter file.\n");
-	exit_flag=1;
-    }
-    if (prms.acq_fov==0){
-	printf("AcqFOV was not properly set in configuration.  Check parameter file.\n");
-	exit_flag=1;
-    }
+    //if (prms.pitch_value==0){
+    //    printf("PitchValue was not properly set in configuration.  Check parameter file.\n");
+    //    exit_flag=1;
+    //}
+    //if (prms.acq_fov==0){
+    //    printf("AcqFOV was not properly set in configuration.  Check parameter file.\n");
+    //    exit_flag=1;
+    //}
     if (prms.recon_fov==0){
 	printf("ReconFOV was not properly set in configuration.  Check parameter file.\n");
 	exit_flag=1;
     }
-    if (prms.n_readings==0){
-	printf("Readings was not properly set in configuration.  Check parameter file.\n");
-	exit_flag=1;
-    }
+    //if (prms.n_readings==0){
+    //    printf("Readings was not properly set in configuration.  Check parameter file.\n");
+    //    exit_flag=1;
+    //}
     if (prms.nx==0){
 	printf("Nx was not properly set in configuration.  Check parameter file.\n");
 	exit_flag=1;
@@ -164,10 +166,10 @@ struct recon_params configure_recon_params(char * filename){
 	printf("Ny was not properly set in configuration.  Check parameter file.\n");
 	exit_flag=1;
     }
-    if (prms.file_type==0&&prms.table_dir==0){
-	printf("WARNING: 'TableDir' parameter unset.  Defaulting to 'out'.\n");
-	prms.table_dir=1;
-    }
+    //if (prms.file_type==0&&prms.table_dir==0){
+    //    printf("WARNING: 'TableDir' parameter unset.  Defaulting to 'out'.\n");
+    //    prms.table_dir=1;
+    //}
     if (exit_flag){
 	exit(1);
     }
@@ -178,206 +180,259 @@ struct recon_params configure_recon_params(char * filename){
 struct ct_geom configure_ct_geom(struct recon_metadata *mr){ 
 
     struct ct_geom cg;
-    struct recon_params rp=mr->rp;
     memset(&cg,0,sizeof(cg));
+
+    // Runtime polymorphism to eventually support multiple raw data formats
+    std::string raw_data_path = mr->rp.raw_data_dir;
+    std::unique_ptr<fct::RawDataSet> ds = std::make_unique<fct::DicomDataSet>();
+    ds->setPath(raw_data_path);
+    ds->initialize();
+    ds->readMetadata();
+
+    // Physical geometry of the scanner (cannot change from scan to scan)
+    // TCIA/Mayo clinic format does not automatically account for FFS in projections per rotation
+    // Number of detector rows
+    cg.anode_angle=7.0f*pi/180.0f; //!!!!!! How to get this for GE scanners?  Maybe we don't need it?
+    cg.r_f             = ds->getDistSourceToIsocenter(); 
+    cg.src_to_det      = ds->getDistSourceToDetector();
+    cg.central_channel = ds->getDetectorCentralChannel();
+    cg.n_rows          = ds->getDetectorRows();
+    cg.n_channels      = ds->getDetectorChannels();
+
+    if (ds->getFlyingFocalSpotMode()=="FFSNONE"){
+      mr->rp.phi_ffs = 0;
+      mr->rp.z_ffs   = 0;
+    }
+    else if (ds->getFlyingFocalSpotMode()=="FFSXY"){
+      mr->rp.phi_ffs = 1;
+      mr->rp.z_ffs   = 0;
+    }
+
+    else if (ds->getFlyingFocalSpotMode()=="FFSZ"){
+      mr->rp.phi_ffs = 0;
+      mr->rp.z_ffs   = 1;
+    }
+    else if (ds->getFlyingFocalSpotMode()=="FFSXYZ"){
+      mr->rp.phi_ffs = 1;
+      mr->rp.z_ffs   = 1;
+    }
+    else {
+      std::cout << "ERROR: Unsupported flying focal spot mode!" << std::endl;
+      exit(1);
+    }
+
+    cg.n_proj_turn = ds->getProjectionsPerRotation();
+    cg.n_proj_ffs  = cg.n_proj_turn*pow(2,mr->rp.phi_ffs)*pow(2,mr->rp.z_ffs);
+    cg.n_rows_raw  = cg.n_rows;     //(unsigned int)(rp.n_rows/pow(2,rp.z_ffs));
+    cg.n_rows      = cg.n_rows*pow(2,mr->rp.z_ffs);
     
-    char * cg_buffer;
-    char * token;
+    cg.fan_angle_increment = atan(ds->getDetectorTransverseSpacing()/ds->getDistSourceToDetector());
+    mr->rp.coll_slicewidth = ds->getDistSourceToIsocenter()*(ds->getDetectorAxialSpacing()/ds->getDistSourceToDetector());
 
-    cg.table_direction=rp.table_dir;
-					
-
-    char path[4096+255];
-    int scanner=-1;
-    // First attempt to parse scanner as full filepath    
-    FILE * cg_file;
-    cg_file=fopen(mr->rp.scanner,"r");
-    if (cg_file==NULL){
-	// Next attempt to find the file in the "resources" directory of the project
-	strcpy(path,mr->install_dir);
-	strcat(path,"/resources/scanners/");
-	strcat(path,mr->rp.scanner);
-	cg_file=fopen(path,"r");
-	if (cg_file==NULL){
-	    // Finally, try it as a number for a hardcoded scanner 
-	    scanner=atoi(mr->rp.scanner);
-	    if ((scanner<0||scanner>2)||(scanner==0&&(strlen(mr->rp.scanner)!=1))){
-		perror("Could not parse selected scanner");
-		exit(1);
-	    }
-	    
-	    // If we use a hardcoded scanner, we want to supercede file subtype
-	    switch (scanner){
-	    case 0:// binary files, don't care
-		break;
-	    case 1:// DefinitionAS -> filetype=ptr -> 1 
-		mr->rp.file_subtype=1;
-		break;
-	    case 2:// Sensation64 -> filetype=ctd -> 2
-		mr->rp.file_subtype=2;
-		break;
-	    }
-	}
-    }
-
-    if (scanner==-1){// Found scanner file
-	fseek(cg_file, 0, SEEK_END);
-	size_t cg_size = ftell(cg_file);
-	rewind(cg_file);
-	cg_buffer = (char*)malloc(cg_size + 1);
-	cg_buffer[cg_size] = '\0';
-	fread(cg_buffer, sizeof(char), cg_size, cg_file);
-	fclose(cg_file);
-
-	token=strtok(cg_buffer," \t\n%");
-
-	//Parse parameter file
-	while (token!=NULL){
-	    if (strcmp(token,"RSrcToIso:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.r_f);
-	    }
-	    else if (strcmp(token,"RSrcToDet:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.src_to_det);
-	    }
-	    else if (strcmp(token,"AnodeAngle:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.anode_angle);
-	    }
-	    else if (strcmp(token,"FanAngleInc:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.fan_angle_increment);
-	    }
-	    else if (strcmp(token,"ThetaCone:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.theta_cone);
-	    }
-	    else if (strcmp(token,"CentralChannel:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%f",&cg.central_channel);
-	    }
-	    else if (strcmp(token,"NProjTurn:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%lu",&cg.n_proj_turn);
-	    }
-	    else if (strcmp(token,"NChannels:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%lu",&cg.n_channels);
-	    }
-	    else if (strcmp(token,"ReverseRowInterleave:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%i",&cg.reverse_row_interleave);
-	    }
-	    else if (strcmp(token,"ReverseChanInterleave:")==0){
-		token=strtok(NULL," \t\n%");
-		sscanf(token,"%i",&cg.reverse_channel_interleave);
-	    }
-	    else { 
-		//token=strtok(NULL," \t\n%"); 
-	    }
-	    
-	    token=strtok(NULL," \t\n%"); 
-	}
-	
-	free(cg_buffer);
-    }
-
-    // If we did not parse from a file, and have a valid number for
-    // the scanner, get our ct_geom from the hardcoded options
-    switch (scanner){ 
-    case -1:
-	// Finish everything out
-	cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-	cg.n_channels_oversampled=2*cg.n_channels;
-	cg.n_rows=(unsigned int)rp.n_rows;
-	cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs));
-	cg.z_rot=rp.pitch_value;
-	cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 	
-	cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
-	
-	break;
-    case 0: // Non-standard scanner (in this case Fred Noo's Simulated Scanner)
-
-	    //float det_spacing_1=1.4083f;
-	    //float det_spacing_2=1.3684f;
-	 
-	    // Physical geometry of the scanner (cannot change from scan to scan) 
-	cg.r_f=570.0f; 
-	cg.src_to_det=1040.0f; 
-	cg.anode_angle=7.0f*pi/180.0f; 
-	cg.fan_angle_increment=1.4083f/cg.src_to_det;
-	cg.theta_cone=2.0f*atan(7.5f*1.3684f/cg.src_to_det);
-	cg.central_channel=335.25f; 
-
-	// Size and setup of the detector helix 
-	cg.n_proj_turn=1160; 
-	cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-	cg.n_channels=672; 
-	cg.n_channels_oversampled=2*cg.n_channels; 
-	cg.n_rows=(unsigned int)rp.n_rows; 
-	cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-	cg.z_rot=rp.pitch_value;
-	cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-	cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-
-	break; 
-
-    case 1: // Definition AS 
-	
-	    // Physical geometry of the scanner (cannot change from scan to scan) 
-	cg.r_f=595.0f; 
-	cg.src_to_det=1085.6f; 
-	cg.anode_angle=7.0f*pi/180.0f; 
-	cg.fan_angle_increment=0.067864f*pi/180.0f; 
-	cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 
-	cg.central_channel=366.25f;
-
-	// Size and setup of the detector helix 
-	cg.n_proj_turn=1152; 
-	cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-	cg.n_channels=736; 
-	cg.n_channels_oversampled=2*cg.n_channels; 
-	cg.n_rows=(unsigned int)rp.n_rows; 
-	cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-	cg.z_rot=rp.pitch_value;
-	cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-	cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-	
-	break; 
-
-    case 2: // Sensation 64 
-
-	    // Physical geometry of the scanner (cannot change from scan to scan) 
-	cg.r_f=570.0f; 
-	cg.src_to_det=1040.0f; 
-	//cg.anode_angle=12.0f*pi/180.0f;
-	cg.anode_angle=7.0f*pi/180.0f;
-	cg.fan_angle_increment=0.07758621f*pi/180.0f;
-	//cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f);
-	cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 	
-	cg.central_channel=334.25f; 
-
-	// Size and setup of the detector helix 
-	cg.n_proj_turn=1160; 
-	cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-	cg.n_channels=672; 
-	cg.n_channels_oversampled=2*cg.n_channels; 
-	cg.n_rows=(unsigned int)rp.n_rows; 
-	cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-	cg.z_rot=rp.pitch_value;
-	cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-	cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-
-	break; 
-    } 
-
-    cg.acq_fov=rp.acq_fov; 
-
-    if (rp.phi_ffs==1){
-	cg.central_channel=floor(cg.central_channel)+0.375f;
-	//cg.central_channel+=0.375f; 
-    }
+    //cg.z_rot = 
+    ////cg.z_rot               = rp.pitch_value;  
+    //cg.add_projections     = (cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
+    //cg.add_projections_ffs = cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
+    //
+    //
+    //cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 
+    
+    //char * cg_buffer;
+    //char * token;
+    //
+    //cg.table_direction=rp.table_dir;
+    //
+    //char path[4096+255];
+    //int scanner=-1;
+    //// First attempt to parse scanner as full filepath    
+    //FILE * cg_file;
+    //cg_file=fopen(mr->rp.scanner,"r");
+    //if (cg_file==NULL){
+    //    // Next attempt to find the file in the "resources" directory of the project
+    //    strcpy(path,mr->install_dir);
+    //    strcat(path,"/resources/scanners/");
+    //    strcat(path,mr->rp.scanner);
+    //    cg_file=fopen(path,"r");
+    //    if (cg_file==NULL){
+    //        // Finally, try it as a number for a hardcoded scanner 
+    //        scanner=atoi(mr->rp.scanner);
+    //        if ((scanner<0||scanner>2)||(scanner==0&&(strlen(mr->rp.scanner)!=1))){
+    //    	perror("Could not parse selected scanner");
+    //    	exit(1);
+    //        }
+    //        
+    //        // If we use a hardcoded scanner, we want to supercede file subtype
+    //        switch (scanner){
+    //        case 0:// binary files, don't care
+    //    	break;
+    //        case 1:// DefinitionAS -> filetype=ptr -> 1 
+    //    	mr->rp.file_subtype=1;
+    //    	break;
+    //        case 2:// Sensation64 -> filetype=ctd -> 2
+    //    	mr->rp.file_subtype=2;
+    //    	break;
+    //        }
+    //    }
+    //}
+    //
+    //if (scanner==-1){// Found scanner file
+    //    fseek(cg_file, 0, SEEK_END);
+    //    size_t cg_size = ftell(cg_file);
+    //    rewind(cg_file);
+    //    cg_buffer = (char*)malloc(cg_size + 1);
+    //    cg_buffer[cg_size] = '\0';
+    //    fread(cg_buffer, sizeof(char), cg_size, cg_file);
+    //    fclose(cg_file);
+    //
+    //    token=strtok(cg_buffer," \t\n%");
+    //
+    //    //Parse parameter file
+    //    while (token!=NULL){
+    //        if (strcmp(token,"RSrcToIso:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.r_f);
+    //        }
+    //        else if (strcmp(token,"RSrcToDet:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.src_to_det);
+    //        }
+    //        else if (strcmp(token,"AnodeAngle:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.anode_angle);
+    //        }
+    //        else if (strcmp(token,"FanAngleInc:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.fan_angle_increment);
+    //        }
+    //        else if (strcmp(token,"ThetaCone:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.theta_cone);
+    //        }
+    //        else if (strcmp(token,"CentralChannel:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%f",&cg.central_channel);
+    //        }
+    //        else if (strcmp(token,"NProjTurn:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%lu",&cg.n_proj_turn);
+    //        }
+    //        else if (strcmp(token,"NChannels:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%lu",&cg.n_channels);
+    //        }
+    //        else if (strcmp(token,"ReverseRowInterleave:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%i",&cg.reverse_row_interleave);
+    //        }
+    //        else if (strcmp(token,"ReverseChanInterleave:")==0){
+    //    	token=strtok(NULL," \t\n%");
+    //    	sscanf(token,"%i",&cg.reverse_channel_interleave);
+    //        }
+    //        else { 
+    //    	//token=strtok(NULL," \t\n%"); 
+    //        }
+    //        
+    //        token=strtok(NULL," \t\n%"); 
+    //    }
+    //    
+    //    free(cg_buffer);
+    //}
+    //
+    //// If we did not parse from a file, and have a valid number for
+    //// the scanner, get our ct_geom from the hardcoded options
+    //switch (scanner){ 
+    //case -1:
+    //    // Finish everything out
+    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
+    //    cg.n_channels_oversampled=2*cg.n_channels;
+    //    cg.n_rows=(unsigned int)rp.n_rows;
+    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs));
+    //    cg.z_rot=rp.pitch_value;
+    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 	
+    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
+    //    
+    //    break;
+    //case 0: // Non-standard scanner (in this case Fred Noo's Simulated Scanner)
+    //
+    //        //float det_spacing_1=1.4083f;
+    //        //float det_spacing_2=1.3684f;
+    //     
+    //        // Physical geometry of the scanner (cannot change from scan to scan) 
+    //    cg.r_f=570.0f; 
+    //    cg.src_to_det=1040.0f; 
+    //    cg.anode_angle=7.0f*pi/180.0f; 
+    //    cg.fan_angle_increment=1.4083f/cg.src_to_det;
+    //    cg.theta_cone=2.0f*atan(7.5f*1.3684f/cg.src_to_det);
+    //    cg.central_channel=335.25f; 
+    //
+    //    // Size and setup of the detector helix 
+    //    cg.n_proj_turn=1160; 
+    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
+    //    cg.n_channels=672; 
+    //    cg.n_channels_oversampled=2*cg.n_channels; 
+    //    cg.n_rows=(unsigned int)rp.n_rows; 
+    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
+    //    cg.z_rot=rp.pitch_value;
+    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
+    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
+    //
+    //    break; 
+    //
+    //case 1: // Definition AS 
+    //    
+    //        // Physical geometry of the scanner (cannot change from scan to scan) 
+    //    cg.r_f=595.0f; 
+    //    cg.src_to_det=1085.6f; 
+    //    cg.anode_angle=7.0f*pi/180.0f; 
+    //    cg.fan_angle_increment=0.067864f*pi/180.0f; 
+    //    cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 
+    //    cg.central_channel=366.25f;
+    //
+    //    // Size and setup of the detector helix 
+    //    cg.n_proj_turn=1152; 
+    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
+    //    cg.n_channels=736; 
+    //    cg.n_channels_oversampled=2*cg.n_channels; 
+    //    cg.n_rows=(unsigned int)rp.n_rows; 
+    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
+    //    cg.z_rot=rp.pitch_value;
+    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
+    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
+    //    
+    //    break; 
+    //
+    //case 2: // Sensation 64 
+    //
+    //        // Physical geometry of the scanner (cannot change from scan to scan) 
+    //    cg.r_f=570.0f; 
+    //    cg.src_to_det=1040.0f; 
+    //    //cg.anode_angle=12.0f*pi/180.0f;
+    //    cg.anode_angle=7.0f*pi/180.0f;
+    //    cg.fan_angle_increment=0.07758621f*pi/180.0f;
+    //    //cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f);
+    //    cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 	
+    //    cg.central_channel=334.25f; 
+    //
+    //    // Size and setup of the detector helix 
+    //    cg.n_proj_turn=1160; 
+    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
+    //    cg.n_channels=672; 
+    //    cg.n_channels_oversampled=2*cg.n_channels; 
+    //    cg.n_rows=(unsigned int)rp.n_rows; 
+    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
+    //    cg.z_rot=rp.pitch_value;
+    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
+    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
+    //
+    //    break; 
+    //} 
+    //
+    //cg.acq_fov=rp.acq_fov; 
+    //
+    //if (rp.phi_ffs==1){
+    //    cg.central_channel=floor(cg.central_channel)+0.375f;
+    //    //cg.central_channel+=0.375f; 
+    //}
     
     return cg;
 }

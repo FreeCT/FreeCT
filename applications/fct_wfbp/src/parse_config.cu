@@ -35,7 +35,7 @@ namespace{
   void parse_string(std::string tagname, std::string& value, YAML::Node& config){
     try{
       std::cout << tagname + ": " ;                                      
-      for (int i=0; i< 35-tagname.length();i++){
+      for (int i=0; i< 35-tagname.length()-1;i++){
         std::cout << " ";
       }     
       value=config[tagname].as<std::string>();

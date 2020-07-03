@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <pwd.h>
 
+#include <iostream>
+
 #include <ctbb_macros.h>
 #include <recon_structs.h>
 #include <setup.h>
@@ -127,6 +129,7 @@ int main(int argc, char ** argv){
     if (device_count==0){
 	mr.flags.no_gpu=1;
     }
+    std::cout << "CUDA Devices: " << device_count << std::endl;
 
     // Configure the GPU/CPU selection
     if (mr.flags.no_gpu==0){
@@ -168,6 +171,8 @@ int main(int argc, char ** argv){
     }    
     mr.rp=configure_recon_params(argv[argc-1]);
 
+    
+
     /* --- Check for defined output directory, set to desktop if empty --- */
     /* Configure various file paths and test that we can write out */
     int ctbb_err=configure_paths(&mr);
@@ -196,6 +201,8 @@ int main(int argc, char ** argv){
     // Step 2a: Setup scanner geometry
     log(mr.flags.verbose,"Configuring scanner geometry...\n");
     mr.cg=configure_ct_geom(&mr);
+    
+    exit(1);
     
     // Step 2b: Configure all remaining information
     log(mr.flags.verbose,"Configuring final reconstruction parameters...\n");

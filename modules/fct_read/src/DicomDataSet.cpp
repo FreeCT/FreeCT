@@ -101,16 +101,22 @@ namespace fct{
       }
       else{
         error_with_message("Rows/Cols does not match DetectorRows or DetectorChannels. Cannot read file!");
-      }
-      
+      }  
     }
 
     return true;
   };
 
-  void DicomDataSet::readAll(){    
+  void DicomDataSet::initialize(){
+    // Build a file list
+    for(auto & p : boost::filesystem::directory_iterator(boost::filesystem::path(m_path))){
+      m_file_list.push_back(boost::filesystem::path(p).string());    
+    }
+    std::sort(m_file_list.begin(),m_file_list.end());
 
-    std::cout << "Reading DICOM dataset from: " << m_path << std::endl;
+    // Preallocate stuff
+    m_total_num_projections = m_file_list.size();    
+    m_data.resize(m_total_num_projections);
 
     // We add the requisite entries to the dictionary
     // This is NOT the preferred way to do it, however DCMTK and the
@@ -156,13 +162,14 @@ namespace fct{
     dict.addEntry(new DcmDictEntry(0x7031,0x1033,DcmEVR::EVR_FL,"DetectorCentralElement"              ,2,2,NULL,false,NULL));
     //new DcmDictEntry(0x7033,0x1065,DcmEVR::EVR_FL,"PhotonStatistics	1-n	PrivateTag
     dcmDataDict.unlock();
+    
+  }
 
-    // Get a full file list for the input directory, sort by file name
-    std::vector<std::string> file_list;
-    for(auto & p : boost::filesystem::directory_iterator(boost::filesystem::path(m_path))){
-      file_list.push_back(boost::filesystem::path(p).string());    
-    }
-    std::sort(file_list.begin(),file_list.end());
+  void DicomDataSet::readProjection(int projection_idx){
+    std::cout << "DicomDataSet::readProjection() not yet impleemented!" << std::endl;
+  }
+
+  void DicomDataSet::readMetadata(){
 
     // Read the first file to extract scanner- and scan-level information
     auto check_status = [](OFCondition status,std::string message){
@@ -171,10 +178,10 @@ namespace fct{
                         };
 
     DcmFileFormat fileformat;
-    OFCondition status = fileformat.loadFile(file_list[0].c_str());
+    OFCondition status = fileformat.loadFile(m_file_list[0].c_str());
 
     if (!status.good())
-      std::cout << "Could not read the file " + file_list[0] << std::endl;
+      std::cout << "Could not read the file " + m_file_list[0] << std::endl;
     else{
 
       // Grab the frame dataset
@@ -229,7 +236,6 @@ namespace fct{
         m_projection_geometry = tmp_string.c_str();
         check_status(status,"Failed to get projection geometry (likely fatal for reconstruction)");
 
-
         // Parse the central detector element
         const float * central_detector = NULL;
         unsigned long count;
@@ -247,22 +253,29 @@ namespace fct{
         } 
       }
     }
-    
+  }
+
+  void DicomDataSet::readAll(){
+
+    std::cout << "Reading DICOM dataset from: " << m_path << std::endl;
+
+    readMetadata();
+
     // Read the raw data file(s), again using runtime polymorphism
     // so that in any subsequent
-    printf("Reading %05zu/%05zu",(size_t)0,file_list.size());
+    printf("Reading %05zu/%05zu",(size_t)0,m_file_list.size());
     int count  = 0;
-    for (auto f: file_list){
+    for (size_t i=0;i<m_file_list.size();i++){
       printf("\b\b\b\b\b\b\b\b\b\b\b");
-      printf("%05zu/%05zu",(size_t)count,file_list.size()); fflush(stdout);
-
-      if (count > 100)
-        break;
+      printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
       
       std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
-      bool success = rdf->readFromFile(f);
-      if (success)
-        m_data.push_back(std::move(rdf));
+      bool success = rdf->readFromFile(m_file_list[i]);
+      if (success){
+        m_data[i] = std::move(rdf);
+      }
+
+      //m_data.push_back(std::move(rdf));
      
       count++;
     }

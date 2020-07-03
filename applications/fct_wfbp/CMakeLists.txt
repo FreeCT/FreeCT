@@ -14,4 +14,4 @@ add_dependencies(fct_wfbp fct_read)
 
 message("${INCLUDE_DIRS}")
 target_include_directories(fct_wfbp PRIVATE include/ ${INCLUDE_DIRS} ${FFTW3_INCLUDE_DIRS})
-target_link_libraries(fct_wfbp PRIVATE ${FFTW3_LIBRARIES} yaml-cpp)
+target_link_libraries(fct_wfbp PRIVATE ${FFTW3_LIBRARIES} yaml-cpp fct_read)

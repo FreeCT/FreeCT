@@ -74,8 +74,8 @@ int main(int argc, char ** argv){
   
   // Runtime polymorphism to eventually support multiple raw data formats
   std::unique_ptr<fct::RawDataSet> ds = std::make_unique<fct::DicomDataSet>();
-
   ds->setPath(input_dirpath);
+  ds->initialize();
   ds->readAll();
 
   if (recon_filepath!="")
