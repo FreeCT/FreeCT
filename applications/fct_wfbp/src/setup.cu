@@ -198,7 +198,8 @@ struct ct_geom configure_ct_geom(struct recon_metadata *mr){
     cg.central_channel = ds->getDetectorCentralChannel();
     cg.n_rows          = ds->getDetectorRows();
     cg.n_channels      = ds->getDetectorChannels();
-
+    cg.n_channels_oversampled = 2 * ds->getDetectorChannels();
+    
     if (ds->getFlyingFocalSpotMode()=="FFSNONE"){
       mr->rp.phi_ffs = 0;
       mr->rp.z_ffs   = 0;
@@ -222,217 +223,54 @@ struct ct_geom configure_ct_geom(struct recon_metadata *mr){
     }
 
     cg.n_proj_turn = ds->getProjectionsPerRotation();
-    cg.n_proj_ffs  = cg.n_proj_turn*pow(2,mr->rp.phi_ffs)*pow(2,mr->rp.z_ffs);
+    cg.n_proj_ffs = ds->getProjectionsPerRotation();
+    std::cout << "Unclear if number of projections in Mayo Clinic format accounts for FFS!" << std::endl;
+    //cg.n_proj_ffs  = cg.n_proj_turn*pow(2,mr->rp.phi_ffs)*pow(2,mr->rp.z_ffs);
     cg.n_rows_raw  = cg.n_rows;     //(unsigned int)(rp.n_rows/pow(2,rp.z_ffs));
     cg.n_rows      = cg.n_rows*pow(2,mr->rp.z_ffs);
     
     cg.fan_angle_increment = atan(ds->getDetectorTransverseSpacing()/ds->getDistSourceToDetector());
     mr->rp.coll_slicewidth = ds->getDistSourceToIsocenter()*(ds->getDetectorAxialSpacing()/ds->getDistSourceToDetector());
 
-    //cg.z_rot = 
-    ////cg.z_rot               = rp.pitch_value;  
-    //cg.add_projections     = (cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-    //cg.add_projections_ffs = cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
-    //
-    //
-    //cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 
-    
-    //char * cg_buffer;
-    //char * token;
-    //
-    //cg.table_direction=rp.table_dir;
-    //
-    //char path[4096+255];
-    //int scanner=-1;
-    //// First attempt to parse scanner as full filepath    
-    //FILE * cg_file;
-    //cg_file=fopen(mr->rp.scanner,"r");
-    //if (cg_file==NULL){
-    //    // Next attempt to find the file in the "resources" directory of the project
-    //    strcpy(path,mr->install_dir);
-    //    strcat(path,"/resources/scanners/");
-    //    strcat(path,mr->rp.scanner);
-    //    cg_file=fopen(path,"r");
-    //    if (cg_file==NULL){
-    //        // Finally, try it as a number for a hardcoded scanner 
-    //        scanner=atoi(mr->rp.scanner);
-    //        if ((scanner<0||scanner>2)||(scanner==0&&(strlen(mr->rp.scanner)!=1))){
-    //    	perror("Could not parse selected scanner");
-    //    	exit(1);
-    //        }
-    //        
-    //        // If we use a hardcoded scanner, we want to supercede file subtype
-    //        switch (scanner){
-    //        case 0:// binary files, don't care
-    //    	break;
-    //        case 1:// DefinitionAS -> filetype=ptr -> 1 
-    //    	mr->rp.file_subtype=1;
-    //    	break;
-    //        case 2:// Sensation64 -> filetype=ctd -> 2
-    //    	mr->rp.file_subtype=2;
-    //    	break;
-    //        }
-    //    }
-    //}
-    //
-    //if (scanner==-1){// Found scanner file
-    //    fseek(cg_file, 0, SEEK_END);
-    //    size_t cg_size = ftell(cg_file);
-    //    rewind(cg_file);
-    //    cg_buffer = (char*)malloc(cg_size + 1);
-    //    cg_buffer[cg_size] = '\0';
-    //    fread(cg_buffer, sizeof(char), cg_size, cg_file);
-    //    fclose(cg_file);
-    //
-    //    token=strtok(cg_buffer," \t\n%");
-    //
-    //    //Parse parameter file
-    //    while (token!=NULL){
-    //        if (strcmp(token,"RSrcToIso:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.r_f);
-    //        }
-    //        else if (strcmp(token,"RSrcToDet:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.src_to_det);
-    //        }
-    //        else if (strcmp(token,"AnodeAngle:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.anode_angle);
-    //        }
-    //        else if (strcmp(token,"FanAngleInc:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.fan_angle_increment);
-    //        }
-    //        else if (strcmp(token,"ThetaCone:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.theta_cone);
-    //        }
-    //        else if (strcmp(token,"CentralChannel:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%f",&cg.central_channel);
-    //        }
-    //        else if (strcmp(token,"NProjTurn:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%lu",&cg.n_proj_turn);
-    //        }
-    //        else if (strcmp(token,"NChannels:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%lu",&cg.n_channels);
-    //        }
-    //        else if (strcmp(token,"ReverseRowInterleave:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%i",&cg.reverse_row_interleave);
-    //        }
-    //        else if (strcmp(token,"ReverseChanInterleave:")==0){
-    //    	token=strtok(NULL," \t\n%");
-    //    	sscanf(token,"%i",&cg.reverse_channel_interleave);
-    //        }
-    //        else { 
-    //    	//token=strtok(NULL," \t\n%"); 
-    //        }
-    //        
-    //        token=strtok(NULL," \t\n%"); 
-    //    }
-    //    
-    //    free(cg_buffer);
-    //}
-    //
-    //// If we did not parse from a file, and have a valid number for
-    //// the scanner, get our ct_geom from the hardcoded options
-    //switch (scanner){ 
-    //case -1:
-    //    // Finish everything out
-    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-    //    cg.n_channels_oversampled=2*cg.n_channels;
-    //    cg.n_rows=(unsigned int)rp.n_rows;
-    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs));
-    //    cg.z_rot=rp.pitch_value;
-    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 	
-    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
-    //    
-    //    break;
-    //case 0: // Non-standard scanner (in this case Fred Noo's Simulated Scanner)
-    //
-    //        //float det_spacing_1=1.4083f;
-    //        //float det_spacing_2=1.3684f;
-    //     
-    //        // Physical geometry of the scanner (cannot change from scan to scan) 
-    //    cg.r_f=570.0f; 
-    //    cg.src_to_det=1040.0f; 
-    //    cg.anode_angle=7.0f*pi/180.0f; 
-    //    cg.fan_angle_increment=1.4083f/cg.src_to_det;
-    //    cg.theta_cone=2.0f*atan(7.5f*1.3684f/cg.src_to_det);
-    //    cg.central_channel=335.25f; 
-    //
-    //    // Size and setup of the detector helix 
-    //    cg.n_proj_turn=1160; 
-    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-    //    cg.n_channels=672; 
-    //    cg.n_channels_oversampled=2*cg.n_channels; 
-    //    cg.n_rows=(unsigned int)rp.n_rows; 
-    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-    //    cg.z_rot=rp.pitch_value;
-    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-    //
-    //    break; 
-    //
-    //case 1: // Definition AS 
-    //    
-    //        // Physical geometry of the scanner (cannot change from scan to scan) 
-    //    cg.r_f=595.0f; 
-    //    cg.src_to_det=1085.6f; 
-    //    cg.anode_angle=7.0f*pi/180.0f; 
-    //    cg.fan_angle_increment=0.067864f*pi/180.0f; 
-    //    cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 
-    //    cg.central_channel=366.25f;
-    //
-    //    // Size and setup of the detector helix 
-    //    cg.n_proj_turn=1152; 
-    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-    //    cg.n_channels=736; 
-    //    cg.n_channels_oversampled=2*cg.n_channels; 
-    //    cg.n_rows=(unsigned int)rp.n_rows; 
-    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-    //    cg.z_rot=rp.pitch_value;
-    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-    //    
-    //    break; 
-    //
-    //case 2: // Sensation 64 
-    //
-    //        // Physical geometry of the scanner (cannot change from scan to scan) 
-    //    cg.r_f=570.0f; 
-    //    cg.src_to_det=1040.0f; 
-    //    //cg.anode_angle=12.0f*pi/180.0f;
-    //    cg.anode_angle=7.0f*pi/180.0f;
-    //    cg.fan_angle_increment=0.07758621f*pi/180.0f;
-    //    //cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f);
-    //    cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f); 	
-    //    cg.central_channel=334.25f; 
-    //
-    //    // Size and setup of the detector helix 
-    //    cg.n_proj_turn=1160; 
-    //    cg.n_proj_ffs=cg.n_proj_turn*pow(2,rp.phi_ffs)*pow(2,rp.z_ffs); 
-    //    cg.n_channels=672; 
-    //    cg.n_channels_oversampled=2*cg.n_channels; 
-    //    cg.n_rows=(unsigned int)rp.n_rows; 
-    //    cg.n_rows_raw=(unsigned int)(rp.n_rows/pow(2,rp.z_ffs)); 
-    //    cg.z_rot=rp.pitch_value;
-    //    cg.add_projections=(cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
-    //    cg.add_projections_ffs=cg.add_projections*pow(2,rp.z_ffs)*pow(2,rp.phi_ffs); 
-    //
-    //    break; 
-    //} 
-    //
-    //cg.acq_fov=rp.acq_fov; 
-    //
-    //if (rp.phi_ffs==1){
-    //    cg.central_channel=floor(cg.central_channel)+0.375f;
-    //    //cg.central_channel+=0.375f; 
-    //}
+    // To accurately compute z_rot (table feed per rotation in mm)
+    // we load 0->(n_rot) and read compute the travel
+    ds->readProjection(0);
+    ds->readProjection(cg.n_proj_ffs);
+
+    cg.z_rot = ds->getTablePosition(cg.n_proj_ffs) - ds->getTablePosition(0);
+
+    cg.add_projections     = (cg.fan_angle_increment*cg.n_channels/2)/(2.0f*pi/cg.n_proj_turn)+10; 
+    cg.add_projections_ffs = cg.add_projections*pow(2,mr->rp.z_ffs)*pow(2,mr->rp.phi_ffs);
+
+    //cg.theta_cone=2.0f*atan(7.5f*1.2f/cg.r_f);
+    float detector_cone_offset = ((float)(cg.n_rows - 1))/2.0f;
+    cg.theta_cone=2.0f*atan(detector_cone_offset * mr->rp.coll_slicewidth/cg.r_f);
+
+    cg.acq_fov = 2.0f * cg.r_f*sin((float(cg.n_channels-1)/2.0) * ds->getDetectorTransverseSpacing() * (1.0f/cg.src_to_det));
+
+    cg.table_direction = cg.z_rot/fabs(cg.z_rot);
+    cg.z_rot = fabs(cg.z_rot);
+
+    std::cout << "CT Geometry and Scan derived parameters: " << std::endl;
+    std::cout << "===========================================" << std::endl;
+    std::cout << "Num projections per turn:          "       << cg.n_proj_turn            << std::endl;
+    std::cout << "Num projections per turn (ffs):    "       << cg.n_proj_ffs             << std::endl;
+    std::cout << "Num detector channels:             "       << cg.n_channels             << std::endl;
+    std::cout << "Num detector channels (ffs):       "       << cg.n_channels_oversampled << std::endl;
+    std::cout << "Num detector rows:                 "       << cg.n_rows_raw             << std::endl;
+    std::cout << "Num detector rows (ffs):           "       << cg.n_rows                 << std::endl;
+    std::cout << "Radius src->isocenter (mm):        "       << cg.r_f                    << std::endl;
+    std::cout << "Radius src->detector (mm):         "       << cg.src_to_det             << std::endl;
+    std::cout << "Table feed per rotation (mm):      "       << cg.z_rot                  << std::endl;
+    std::cout << "Theta cone (rad):                  "       << cg.theta_cone             << std::endl;
+    std::cout << "Fan angle increment (rad):         "       << cg.fan_angle_increment    << std::endl;
+    std::cout << "Anode angle (rad) *:               "       << cg.anode_angle            << std::endl;
+    std::cout << "Central channel:                   "       << cg.central_channel        << std::endl;
+    std::cout << "Acquisition FOV (mm):              "       << cg.acq_fov                << std::endl;
+    std::cout << "Projection block buffer:           "       << cg.add_projections        << std::endl;
+    std::cout << "Projection block buffer (ffs):     "       << cg.add_projections_ffs    << std::endl;
+    std::cout << "Table direction *:                 "       << cg.table_direction        << std::endl;
+    std::cout << "Collimated slicewidth @ isocenter: "       << mr->rp.coll_slicewidth    << std::endl;
     
     return cg;
 }

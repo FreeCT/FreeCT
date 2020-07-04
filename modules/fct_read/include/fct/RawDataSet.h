@@ -106,6 +106,26 @@ namespace fct{
     };
     uint16_t    getTotalNumProjections()       {return m_total_num_projections;}
 
+    float getTablePosition(int projection_idx){
+      if (projectionIsAvailable(projection_idx))
+        return m_data[projection_idx]->m_dfc_axial_position;
+      else
+        return (0.0/0.0);
+    };
+
+    bool projectionIsAvailable(int projection_idx){
+      if (projection_idx>(m_total_num_projections - 1)){
+        std::cout << "ERROR: Requested projection " << projection_idx << "outside of available projections" << std::endl;;
+        return false;
+      }
+      else if ( m_is_loaded[projection_idx]==false){
+        std::cout << "ERROR: Requested projection " << projection_idx << "has not been loaded" << std::endl;;
+        return false;
+      }
+      else
+        return true;
+    }
+
   protected:
 
     friend class RawDataFrame;
@@ -145,6 +165,7 @@ namespace fct{
 
     std::string m_path;
     std::vector<std::unique_ptr<fct::RawDataFrame>> m_data;
+    std::vector<bool> m_is_loaded;
 
     std::string m_manufacturer;           // "SIEMENS" or "GE"    
     uint16_t m_detector_rows;

@@ -117,6 +117,8 @@ namespace fct{
     // Preallocate stuff
     m_total_num_projections = m_file_list.size();    
     m_data.resize(m_total_num_projections);
+    m_is_loaded.resize(m_total_num_projections);
+    std::fill(m_is_loaded.begin(), m_is_loaded.end(), false);
 
     // We add the requisite entries to the dictionary
     // This is NOT the preferred way to do it, however DCMTK and the
@@ -167,6 +169,18 @@ namespace fct{
 
   void DicomDataSet::readProjection(int projection_idx){
     std::cout << "DicomDataSet::readProjection() not yet impleemented!" << std::endl;
+
+    if (projection_idx > m_total_num_projections){
+      std::cout << "Could not load projection " << projection_idx << " (total number of projections: " << m_total_num_projections << ")";
+      return;
+    }
+    
+    std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
+    bool success = rdf->readFromFile(m_file_list[projection_idx]);
+    if (success){
+      m_data[projection_idx] = std::move(rdf);
+      m_is_loaded[projection_idx] = true;
+    }
   }
 
   void DicomDataSet::readMetadata(){
@@ -273,6 +287,7 @@ namespace fct{
       bool success = rdf->readFromFile(m_file_list[i]);
       if (success){
         m_data[i] = std::move(rdf);
+        m_is_loaded[i] = true;
       }
 
       //m_data.push_back(std::move(rdf));
