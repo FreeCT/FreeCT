@@ -189,9 +189,11 @@ struct ct_geom configure_ct_geom(struct recon_metadata *mr){
     ds->initialize();
     ds->readMetadata();
 
+    mr->rp.n_readings = ds->getTotalNumProjections();
+
     // Physical geometry of the scanner (cannot change from scan to scan)
     // TCIA/Mayo clinic format does not automatically account for FFS in projections per rotation
-    // Number of detector rows
+    // Number of detector rows    
     cg.anode_angle=7.0f*pi/180.0f; //!!!!!! How to get this for GE scanners?  Maybe we don't need it?
     cg.r_f             = ds->getDistSourceToIsocenter(); 
     cg.src_to_det      = ds->getDistSourceToDetector();
@@ -275,106 +277,23 @@ struct ct_geom configure_ct_geom(struct recon_metadata *mr){
     return cg;
 }
 
-void configure_reconstruction(struct recon_metadata *mr){
+void configure_reconstruction(struct recon_metadata *mr, std::shared_ptr<fct::RawDataSet> ds){
+  
     /* --- Get tube angles and table positions --- */
-    struct ct_geom cg=mr->cg;
-    struct recon_params rp=mr->rp;
-
-    // Allocate the memory
-    mr->tube_angles=(float*)calloc(rp.n_readings,sizeof(float));
-    mr->table_positions=(double*)calloc(rp.n_readings,sizeof(double));
+    struct ct_geom cg      = mr->cg;
+    struct recon_params rp = mr->rp;
     
-    char fullpath[4096+255]={0};
-    sprintf(fullpath,"%s/%s",rp.raw_data_dir,rp.raw_data_file);
+    mr->tube_angles     = (float*)calloc(rp.n_readings,sizeof(float));
+    mr->table_positions = (double*)calloc(rp.n_readings,sizeof(double));
     
-    FILE * raw_file;
-    raw_file=fopen(fullpath,"rb");
-    if (raw_file==NULL){
-	perror("Raw data file not found.");
-	exit(1);	
+    for (int i=0;i<rp.n_readings;i++){
+      mr->table_positions[i] = ds->getTablePosition(i);
+      mr->tube_angles[i]     = ds->getTubeAngle(i);      
     }
-    
-    //switch (rp.file_type){
-    //case 0:{; // Binary file
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=fmod(((360.0f/cg.n_proj_ffs)*i+rp.tube_start_angle),360.0f);
-    //    	if (cg.table_direction==-1)
-    //    	    mr->table_positions[i]=((float)rp.n_readings/(float)cg.n_proj_ffs)*cg.z_rot-(float)i*cg.z_rot/(float)cg.n_proj_ffs;
-    //    	else if (cg.table_direction==1)
-    //    	    mr->table_positions[i]=0.0f+(float)i*cg.z_rot/(float)cg.n_proj_ffs;
-    //    	else 
-    //    	    mr->table_positions[i]=0.0f+(float)i*cg.z_rot/(float)cg.n_proj_ffs;
-    //        }	
-    //        break;}
-    //case 1:{; //DefinitionAS Raw
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadPTRTubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw);
-    //    	mr->table_positions[i]=((double)ReadPTRTablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw))/1000.0;		
-    //        }
-    //        
-    //        // Clean up the table positions because they tend to
-    //        // be wonky at the ends when read directly from the
-    //        // raw data
-    //    	
-    //        // <0 is decreasing table position >0 is increasing
-    //        int direction=(mr->table_positions[100]-mr->table_positions[0])/fabs(mr->table_positions[100]-mr->table_positions[0]);
-    //        
-    //        for (int i=1;i<rp.n_readings;i++){
-    //    	mr->table_positions[i]=mr->table_positions[0]+(double)cg.z_rot*(((double)i)/(pow(2.0,rp.z_ffs)*pow(2.0,rp.phi_ffs)*(double)cg.n_proj_turn))*(double)direction;
-    //        }
-    //
-    //        break;}
-    //case 2:{; //CTD v1794 (Pre 2015 Sensation64)
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadCTDv1794TubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw);
-    //    	mr->table_positions[i]=(double)ReadCTDv1794TablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw)/1000.0;
-    //        }
-    //        break;}
-    //case 3:{; //CTD v2007 (Post 2015 Sensation64)
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadCTDv2007TubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw);
-    //    	mr->table_positions[i]=(double)ReadCTDv2007TablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw)/1000.0;
-    //        }
-    //        break;}
-    //case 4:{; //IMA (can wrap any of the above (except binary)
-    //        int raw_data_subtype=mr->rp.file_subtype; // Determine if we're looking for PTR or CTD
-    //    
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadIMATubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw,raw_data_subtype,rp.raw_data_offset);
-    //    	mr->table_positions[i]=((double)ReadIMATablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw,raw_data_subtype,rp.raw_data_offset))/1000.0;
-    //        }
-    //
-    //        // Clean up the table positions because they tend to
-    //        // be wonky at the ends when read directly from the
-    //        // raw data
-    //
-    //        // <0 is decreasing table position >0 is increasing
-    //        int direction=(mr->table_positions[100]-mr->table_positions[0])/fabs(mr->table_positions[100]-mr->table_positions[0]);
-    //        
-    //        for (int i=1;i<rp.n_readings;i++){
-    //    	mr->table_positions[i]=mr->table_positions[0]+(double)cg.z_rot*(((double)i)/(pow(2.0,rp.z_ffs)*pow(2.0,rp.phi_ffs)*(double)cg.n_proj_turn))*(double)direction;
-    //        }
-    //        
-    //        break;}
-    //case 5:{; //Force Raw
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadForceTubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw);
-    //    	mr->table_positions[i]=(double)ReadForceTablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw)/1000.0;
-    //        }
-    //        break;}
-    //case 6:{; //DICOM Raw
-    //        for (int i=0;i<rp.n_readings;i++){
-    //    	mr->tube_angles[i]=ReadDICOMTubeAngle(raw_file,i,cg.n_channels,cg.n_rows_raw);
-    //    	mr->table_positions[i]=(double)ReadDICOMTablePosition(raw_file,i,cg.n_channels,cg.n_rows_raw)/1000.0;
-    //        }
-    //        break;}
-    //}
-    fclose(raw_file);
 
     /* --- Figure out how many and which projections to grab --- */
-
-    int n_ffs=pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
-    int n_slices_block=BLOCK_SLICES;
+    int n_ffs          = pow(2,rp.z_ffs)*pow(2,rp.phi_ffs);
+    int n_slices_block = BLOCK_SLICES;
 
     int recon_direction=fabs(rp.end_pos-rp.start_pos)/(rp.end_pos-rp.start_pos);
     if (recon_direction!=1&&recon_direction!=-1) // user request one slice (end_pos==start_pos)
@@ -511,11 +430,11 @@ void update_block_info(recon_metadata *mr){
     if (recon_direction!=1&&recon_direction!=-1) // user requests one slice (end_pos==start_pos)
 	recon_direction=1;
     
-    float block_slice_start=ri.recon_start_pos+recon_direction*ri.cb.block_idx*rp.coll_slicewidth*(float)ri.n_slices_block;
-    float block_slice_end=block_slice_start+(float)recon_direction*((float)ri.n_slices_block-1.0f)*rp.coll_slicewidth;
-    int array_direction=fabs(mr->table_positions[100]-mr->table_positions[0])/(mr->table_positions[100]-mr->table_positions[0]);
-    int idx_block_slice_start=array_search(block_slice_start,mr->table_positions,rp.n_readings,array_direction);
-    int idx_block_slice_end=array_search(block_slice_end,mr->table_positions,rp.n_readings,array_direction);
+    float block_slice_start   = ri.recon_start_pos+recon_direction*ri.cb.block_idx*rp.coll_slicewidth*(float)ri.n_slices_block;
+    float block_slice_end     = block_slice_start+(float)recon_direction*((float)ri.n_slices_block-1.0f)*rp.coll_slicewidth;
+    int array_direction       = fabs(mr->table_positions[100]-mr->table_positions[0])/(mr->table_positions[100]-mr->table_positions[0]);
+    int idx_block_slice_start = array_search(block_slice_start,mr->table_positions,rp.n_readings,array_direction);
+    int idx_block_slice_end   = array_search(block_slice_end,mr->table_positions,rp.n_readings,array_direction);
 
     // We always pull projections in the order they occur in the raw
     // data.  If the end_pos comes before the start position in the
@@ -550,18 +469,18 @@ void update_block_info(recon_metadata *mr){
     int n_proj_pull=idx_pull_end-idx_pull_start;
 
     // Ensure that we have a number of projections divisible by 128 (because GPU)
-    n_proj_pull=(n_proj_pull-1)+(128-(n_proj_pull-1)%128);
-    idx_pull_end=idx_pull_start+n_proj_pull;
+    n_proj_pull  = (n_proj_pull-1)+(128-(n_proj_pull-1)%128);
+    idx_pull_end = idx_pull_start+n_proj_pull;
     
     // copy this info into our recon metadata
-    mr->ri.cb.block_slice_start=block_slice_start;
-    mr->ri.cb.block_slice_end=block_slice_end;
-    mr->ri.cb.idx_block_slice_start=idx_block_slice_start;
-    mr->ri.cb.idx_block_slice_end=idx_block_slice_end; 
-
-    mr->ri.idx_pull_start=idx_pull_start;
-    mr->ri.idx_pull_end=idx_pull_end;
-    mr->ri.n_proj_pull=n_proj_pull;
+    mr->ri.cb.block_slice_start     = block_slice_start;
+    mr->ri.cb.block_slice_end       = block_slice_end;
+    mr->ri.cb.idx_block_slice_start = idx_block_slice_start;
+    mr->ri.cb.idx_block_slice_end   = idx_block_slice_end; 
+                                      
+    mr->ri.idx_pull_start           = idx_pull_start;
+    mr->ri.idx_pull_end             = idx_pull_end;
+    mr->ri.n_proj_pull              = n_proj_pull;
 
     mr->ri.cb.block_idx++;
 
@@ -571,16 +490,25 @@ void update_block_info(recon_metadata *mr){
     
 }
 
-void extract_projections(struct recon_metadata * mr){
+void extract_projections(struct recon_metadata * mr,std::shared_ptr<fct::RawDataSet> ds){
 
-    float * frame_holder=(float*)calloc(mr->cg.n_channels*mr->cg.n_rows_raw,sizeof(float));
+  //float * frame_holder=(float*)calloc(mr->cg.n_channels*mr->cg.n_rows_raw,sizeof(float));
 
-    FILE * raw_file;
-    struct recon_params rp=mr->rp;
-    struct ct_geom cg=mr->cg;
-    char fullpath[4096+255]={0};
-    sprintf(fullpath,"%s/%s",rp.raw_data_dir,rp.raw_data_file);
-    raw_file=fopen(fullpath,"rb");
+    //FILE * raw_file;
+    //struct recon_params rp=mr->rp;
+    //struct ct_geom cg=mr->cg;
+    //char fullpath[4096+255]={0};
+    //sprintf(fullpath,"%s/%s",rp.raw_data_dir,rp.raw_data_file);
+    //raw_file=fopen(fullpath,"rb");
+    
+    for (int i=0; i << mr->ri.n_proj_pull;i++){
+      int target_idx = mr->ri.idx_pull_start + i;
+      size_t data_offset = (mr->cg.n_channels * mr->cg.n_rows_raw * i);
+      ds->copyProjection(target_idx,&mr->ctd.raw[data_offset]);  
+      //ds->copyProjection(target_idx,frame_holder);      
+    }
+
+    //mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j]
     
     //switch (mr->rp.file_type){
     //case 0:{ // binary
@@ -646,17 +574,17 @@ void extract_projections(struct recon_metadata * mr){
     //}
 
     // Check "testing" flag, write raw to disk if set
-    if (mr->flags.testing){
-	memset(fullpath,0,4096+255);
-	strcpy(fullpath,mr->rp.output_dir);
-	strcat(fullpath,"/raw.ct_test");
-	FILE * outfile=fopen(fullpath,"w");
-	fwrite(mr->ctd.raw,sizeof(float),cg.n_channels*cg.n_rows_raw*mr->ri.n_proj_pull,outfile);
-	fclose(outfile);
-    }
+    //if (mr->flags.testing){
+    //    memset(fullpath,0,4096+255);
+    //    strcpy(fullpath,mr->rp.output_dir);
+    //    strcat(fullpath,"/raw.ct_test");
+    //    FILE * outfile=fopen(fullpath,"w");
+    //    fwrite(mr->ctd.raw,sizeof(float),cg.n_channels*cg.n_rows_raw*mr->ri.n_proj_pull,outfile);
+    //    fclose(outfile);
+    //}
     
-    fclose(raw_file);
-    free(frame_holder);
+    //fclose(raw_file);
+    //free(frame_holder);
 }
 
 void finish_and_cleanup(struct recon_metadata * mr){

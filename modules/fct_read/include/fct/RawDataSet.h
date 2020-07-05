@@ -113,6 +113,13 @@ namespace fct{
         return (0.0/0.0);
     };
 
+    float getTubeAngle(int projection_idx){
+      if (projectionIsAvailable(projection_idx))
+        return m_data[projection_idx]->m_dfc_angular_position;
+      else
+        return (0.0/0.0);
+    };
+
     bool projectionIsAvailable(int projection_idx){
       if (projection_idx>(m_total_num_projections - 1)){
         std::cout << "ERROR: Requested projection " << projection_idx << "outside of available projections" << std::endl;;
@@ -124,6 +131,11 @@ namespace fct{
       }
       else
         return true;
+    }
+
+    [[deprecated("Only used to achieve initial TCIA compatibility")]]
+    void copyProjection(int projection_idx,float * buffer){
+      memcpy(buffer,m_data[projection_idx]->m_projection.data(),m_detector_rows*m_detector_channels*sizeof(float));
     }
 
   protected:

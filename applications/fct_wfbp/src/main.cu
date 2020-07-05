@@ -31,6 +31,7 @@
 #include <iostream>
 
 #include <ctbb_macros.h>
+#include <fct/FreeCTRead.h>
 #include <recon_structs.h>
 #include <setup.h>
 #include <preprocessing.h>
@@ -202,11 +203,20 @@ int main(int argc, char ** argv){
     log(mr.flags.verbose,"Configuring scanner geometry...\n");
     mr.cg=configure_ct_geom(&mr);
     
-    exit(1);
-    
     // Step 2b: Configure all remaining information
+    
+    /* --- Load the dataset into memory --- */
+    // Note, we read the whole dataset despite a performance hit.
+    // We will work on doing this better in the future.
+    std::string raw_data_path = mr.rp.raw_data_dir;
+    //std::unique_ptr<fct::RawDataSet> ds = std::make_unique<fct::DicomDataSet>();
+    std::shared_ptr<fct::RawDataSet> ds = std::make_shared<fct::DicomDataSet>();
+    ds->setPath(raw_data_path);
+    ds->initialize();
+    ds->readAll();
+
     log(mr.flags.verbose,"Configuring final reconstruction parameters...\n");
-    configure_reconstruction(&mr);
+    configure_reconstruction(&mr,ds);
 
     log(mr.flags.verbose,"Allowed recon range: %.2f to %.2f\n",mr.ri.allowed_begin,mr.ri.allowed_end);
     log(mr.flags.verbose,"\nSTARTING RECONSTRUCTION\n\n");
@@ -220,7 +230,7 @@ int main(int argc, char ** argv){
 	
 	// Step 3: Extract raw data from file into memory
 	log(mr.flags.verbose,"Reading raw data from file...\n");
-	extract_projections(&mr);
+	extract_projections(&mr,ds);
     
 	/* --- Step 3.5: Adaptive filtration handled by preprocessing.cu ---*/
 	// Step 3.5: Adaptive filtration of raw data to reduce streak artifacts

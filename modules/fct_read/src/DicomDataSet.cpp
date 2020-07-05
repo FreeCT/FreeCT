@@ -168,8 +168,7 @@ namespace fct{
   }
 
   void DicomDataSet::readProjection(int projection_idx){
-    std::cout << "DicomDataSet::readProjection() not yet impleemented!" << std::endl;
-
+    
     if (projection_idx > m_total_num_projections){
       std::cout << "Could not load projection " << projection_idx << " (total number of projections: " << m_total_num_projections << ")";
       return;
