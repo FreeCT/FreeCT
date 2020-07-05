@@ -29,6 +29,7 @@
 
 void copy_sheet(float * sheetptr, int row, struct recon_metadata *mr, struct ct_geom cg);
 void load_filter(float * f_array,struct recon_metadata * mr);
+void generate_filter(float * f_array,struct recon_metadata * mr, float c=1.0f, float a=1.0f); // c and a control ramp rolloff. Not exposed at this point.
 
 void rebin_nffs(struct recon_metadata *mr);
 void rebin_pffs(struct recon_metadata *mr);
@@ -956,4 +957,31 @@ void load_filter(float * f_array,struct recon_metadata * mr){
 
     fread(f_array,sizeof(float),2*cg.n_channels_oversampled,filter_file);
     fclose(filter_file);
+}
+
+
+void generate_filter(float * f_array,struct recon_metadata * mr, float c, float a){
+  // Create a spatial domain ramp filter.  Eventually we'll expost c and a
+  // so users can customize filter response for smoother/sharper reconstructions
+  
+  //float * h_filter=(float*)calloc(2*cg.n_channels_oversampled,sizeof(float));
+  //float ds = mr->cg.r_f*sin(mr->cg.fan_angle_increment/2.0f); // This is at isocenter.  Is that correct?
+  
+  //const float pi = 3.141592653589f;
+  float ds = mr->cg.src_to_det*sin(mr->cg.fan_angle_increment/2.0f); // I think it should be at the detector
+
+  auto r = [](float t)-> float{
+             float v = sin(t)/t + (cos(t)-1.0f)/(t*t);
+             if (t==0)
+               v=0.5;
+             return v;
+           };
+
+  //f=(c^2/(2*ds))*(a*r(c*pi*k)+((1-a)/2)*r(pi*c*k+pi)+((1-a)/2)*r(pi*c*k-pi));
+  for (int i=-mr->cg.n_channels_oversampled; i < mr->cg.n_channels_oversampled;i++){
+    f_array[i+mr->cg.n_channels_oversampled] = (c*c/(2.0f*ds)) * (a*r(c*pi*i) +
+                                                                  (((1.0f-a)/2.0f)*r(pi*c*i + pi)) +
+                                                                  (((1.0f -a)/2.0f)*r(pi*c*i-pi)));
+  }
+  
 }
