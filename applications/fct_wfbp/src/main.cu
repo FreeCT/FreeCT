@@ -238,6 +238,15 @@ int main(int argc, char ** argv){
 
 	TIME_EXEC(adaptive_filter_kk(&mr),mr.flags.timing,"adaptive_filtration");
 
+        // Testing //
+        //char fullpath[4096+255]={0};
+        //strcpy(fullpath,mr.rp.output_dir);
+        //strcat(fullpath,"/adaptive_filtered.ct_test");
+        //FILE * outfile=fopen(fullpath,"w");
+        //fwrite(mr.ctd.raw,sizeof(float),mr.cg.n_channels*mr.cg.n_rows_raw*mr.ri.n_proj_pull,outfile);
+        //fclose(outfile);
+        //endtesting//
+
 	/* --- Step 4 handled by functions in rebin_filter.cu --- */
 	// Step 4: Rebin and filter
 	log(mr.flags.verbose,"Rebinning and filtering data...\n");

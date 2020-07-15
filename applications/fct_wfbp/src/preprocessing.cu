@@ -118,7 +118,6 @@ int adaptive_filter_kk(struct recon_metadata * mr){
     find_thresholds<<<threshold_blocks,threshold_threads>>>(mr->rp.adaptive_filtration_s,d_ecc,d_sup_smooth,d_p_max,d_p_min,d_threshold);
     gpuErrchk( cudaPeekAtLastError() );
     gpuErrchk( cudaDeviceSynchronize() );
-
     
     //cudaMemcpy(h_threshold,d_threshold,ri.n_proj_pull*sizeof(float),cudaMemcpyDeviceToHost);
     //float_debug(h_threshold,ri.n_proj_pull,"/home/john/Desktop/h_threshold.txt");

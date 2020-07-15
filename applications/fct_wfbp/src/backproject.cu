@@ -25,8 +25,21 @@
 #include <backproject.h>
 #include <math.h>
 
+#include <iostream>
+#include <fstream>
+
 #define Bx 16
 #define By 16
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
 
 int backproject(struct recon_metadata * mr){
 
@@ -75,6 +88,8 @@ int backproject(struct recon_metadata * mr){
     dim3 blocks(mr->rp.nx/Bx,mr->rp.ny/By,mr->ri.n_slices_block/K);
 
     for (int i=0;i<cg.n_proj_turn/2;i+=I*2){
+
+      std::cout << "doing some stuff " << i <<std::endl;
 	for (int k=0;k<n_half_turns;k++){
 	    cudaMemcpyToArrayAsync(cu_proj_1,0,k*I*cg.n_rows,&mr->ctd.d_rebin[(i+k*cg.n_proj_turn/2)*cg.n_rows*cg.n_channels_oversampled],I*cg.n_rows*cg.n_channels_oversampled*sizeof(float),cudaMemcpyDeviceToDevice,stream1);
 	}
@@ -87,15 +102,20 @@ int backproject(struct recon_metadata * mr){
 	
 	// Kernel call 1
 	bp_a<<<blocks,threads,0,stream1>>>(d_output,i,tube_start,n_half_turns);
+        gpuErrchk(cudaPeekAtLastError());
 
 	// Kernel call 2
 	bp_b<<<blocks,threads,0,stream2>>>(d_output,i+I,tube_start,n_half_turns);
-	
+	gpuErrchk(cudaPeekAtLastError());
     }
 
     long block_offset=(mr->ri.cb.block_idx-1)*mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block;
+    std::cout << "Block offset: " << block_offset << std::endl;
     cudaMemcpy(&mr->ctd.image[block_offset],d_output,mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block*sizeof(float),cudaMemcpyDeviceToHost);
 
+    std::ofstream debug_file("raw_recon_block.dat",std::ios::binary);
+    debug_file.write((char*)&mr->ctd.image[block_offset],mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block*sizeof(float));
+    
     cudaFree(mr->ctd.d_rebin);
     cudaFree(d_output);
     cudaFreeArray(cu_proj_1);

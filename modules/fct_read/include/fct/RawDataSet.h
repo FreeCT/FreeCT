@@ -55,7 +55,7 @@ namespace fct{
     
     // Bare minimum support right now
     std::string m_filepath = "";
-    Eigen::MatrixXf m_projection;
+    Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> m_projection;
     
     uint16_t m_detector_channels;
     uint16_t m_detector_rows;

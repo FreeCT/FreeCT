@@ -73,7 +73,7 @@ __global__ void n1_rebin(float * output,int row){
     int channel = threadIdx.x + blockDim.x*blockIdx.x;
     int proj    = threadIdx.y + blockDim.y*blockIdx.y;
     
-    float beta=asin(((float)channel-2*d_cg.central_channel)*(d_cg.fan_angle_increment/2));
+    float beta=asin(((float)channel-2*d_cg.central_channel)*(d_cg.fan_angle_increment/2));    
     float alpha_idx=(float)proj-beta*d_cg.n_proj_turn/(2.0f*pi);
     float beta_idx=beta/d_cg.fan_angle_increment+d_cg.central_channel;
 
@@ -87,7 +87,7 @@ __global__ void n2_rebin(float * output,int row){
     int proj    = threadIdx.y + blockDim.y*blockIdx.y;
 
     float beta=asin(((float)channel-2*d_cg.central_channel)*(d_cg.fan_angle_increment/2));
-    float alpha_idx=(float)proj-beta*d_cg.n_proj_turn/(2*pi);
+    float alpha_idx=(float)proj-beta*d_cg.n_proj_turn/(2.0f*pi);
     float beta_idx=beta/d_cg.fan_angle_increment+d_cg.central_channel;
 
     int out_idx=d_cg.n_channels_oversampled*(d_ri.n_proj_pull/d_ri.n_ffs)*row+(d_ri.n_proj_pull/d_ri.n_ffs)*channel+proj;

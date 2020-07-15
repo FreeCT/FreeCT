@@ -473,6 +473,7 @@ void update_block_info(recon_metadata *mr){
     idx_pull_end = idx_pull_start+n_proj_pull;
     
     // copy this info into our recon metadata
+    mr->ri.n_ffs                    = n_ffs;
     mr->ri.cb.block_slice_start     = block_slice_start;
     mr->ri.cb.block_slice_end       = block_slice_end;
     mr->ri.cb.idx_block_slice_start = idx_block_slice_start;
@@ -497,11 +498,11 @@ void extract_projections(struct recon_metadata * mr,std::shared_ptr<fct::RawData
     //FILE * raw_file;
     //struct recon_params rp=mr->rp;
     //struct ct_geom cg=mr->cg;
-    //char fullpath[4096+255]={0};
+    char fullpath[4096+255]={0};
     //sprintf(fullpath,"%s/%s",rp.raw_data_dir,rp.raw_data_file);
     //raw_file=fopen(fullpath,"rb");
     
-    for (int i=0; i << mr->ri.n_proj_pull;i++){
+    for (int i=0; i < mr->ri.n_proj_pull;i++){
       int target_idx = mr->ri.idx_pull_start + i;
       size_t data_offset = (mr->cg.n_channels * mr->cg.n_rows_raw * i);
       ds->copyProjection(target_idx,&mr->ctd.raw[data_offset]);  
@@ -510,78 +511,15 @@ void extract_projections(struct recon_metadata * mr,std::shared_ptr<fct::RawData
 
     //mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j]
     
-    //switch (mr->rp.file_type){
-    //case 0:{ // binary
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadBinaryFrame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder,mr->rp.raw_data_offset);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}
-    //case 1:{ // DefinitionAS
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadPTRFrame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}
-    //case 2:{ // CTD v1794 
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadCTDv1794Frame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}
-    //case 3:{ // CTD v2007
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadCTDv2007Frame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}
-    //case 4:{ // IMA (wraps either PTR or IMA)
-    //    int raw_data_subtype=rp.file_subtype;
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadIMAFrame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder,raw_data_subtype,rp.raw_data_offset);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}	
-    //case 5:{ //Force Raw
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        
-    //        ReadForceFrame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder);
-    //
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //
-    //    }
-    //    break;}
-    //case 6:{ //DICOM Raw
-    //    for (int i=0;i<mr->ri.n_proj_pull;i++){
-    //        ReadDICOMFrame(raw_file,mr->ri.idx_pull_start+i,cg.n_channels,cg.n_rows_raw,frame_holder);
-    //        for (int j=0;j<cg.n_channels*cg.n_rows_raw;j++){
-    //    	mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j];
-    //        }
-    //    }
-    //    break;}
-    //}
-
     // Check "testing" flag, write raw to disk if set
     //if (mr->flags.testing){
-    //    memset(fullpath,0,4096+255);
-    //    strcpy(fullpath,mr->rp.output_dir);
-    //    strcat(fullpath,"/raw.ct_test");
-    //    FILE * outfile=fopen(fullpath,"w");
-    //    fwrite(mr->ctd.raw,sizeof(float),cg.n_channels*cg.n_rows_raw*mr->ri.n_proj_pull,outfile);
-    //    fclose(outfile);
-    //}
+      //memset(fullpath,0,4096+255);
+        strcpy(fullpath,mr->rp.output_dir);
+        strcat(fullpath,"/raw.ct_test");
+        FILE * outfile=fopen(fullpath,"w");
+        fwrite(mr->ctd.raw,sizeof(float),mr->cg.n_channels*mr->cg.n_rows_raw*mr->ri.n_proj_pull,outfile);
+        fclose(outfile);
+        //}
     
     //fclose(raw_file);
     //free(frame_holder);

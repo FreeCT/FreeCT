@@ -32,23 +32,23 @@ struct block_info{
 };
 
 struct recon_info{
-    size_t n_ffs;
-    float data_begin_pos;
-    float data_end_pos;
-    float allowed_begin;
-    float allowed_end;
-    size_t n_slices_requested;
-    size_t n_slices_recon;
-    size_t n_slices_block;
-    size_t n_blocks;
-    size_t idx_slice_start;
-    size_t idx_slice_end; 
-    float recon_start_pos;
-    float recon_end_pos;
-    size_t idx_pull_start;
-    size_t idx_pull_end;
-    size_t n_proj_pull;
-    struct block_info cb;
+  size_t n_ffs; 
+  float data_begin_pos;
+  float data_end_pos;
+  float allowed_begin;
+  float allowed_end;
+  size_t n_slices_requested;
+  size_t n_slices_recon;
+  size_t n_slices_block;
+  size_t n_blocks;
+  size_t idx_slice_start;
+  size_t idx_slice_end; 
+  float recon_start_pos;
+  float recon_end_pos;
+  size_t idx_pull_start; //
+  size_t idx_pull_end; //
+  size_t n_proj_pull; //
+  struct block_info cb;
 };
     
 struct ct_data{

@@ -27,6 +27,9 @@
 #include <rebin_filter.cuh>
 #include <rebin_filter.h>
 
+#include <iostream>
+#include <fstream>
+
 void copy_sheet(float * sheetptr, int row, struct recon_metadata *mr, struct ct_geom cg);
 void load_filter(float * f_array,struct recon_metadata * mr);
 void generate_filter(float * f_array,struct recon_metadata * mr, float c=1.0f, float a=1.0f); // c and a control ramp rolloff. Not exposed at this point.
@@ -38,6 +41,8 @@ void rebin_affs(struct recon_metadata *mr);
 
 int rebin_filter(struct recon_metadata * mr){
 
+  std::cout << "REBIN FILTER: " << mr->ri.n_ffs << std::endl;
+  
     switch (mr->ri.n_ffs){
     case 1:{
 	rebin_nffs(mr);
@@ -85,7 +90,12 @@ void rebin_nffs(struct recon_metadata *mr){
     
     // Ready our filter
     float * h_filter=(float*)calloc(2*cg.n_channels_oversampled,sizeof(float));
-    load_filter(h_filter,mr);
+    //load_filter(h_filter,mr);
+    generate_filter(h_filter,mr);
+
+    std::ofstream filter_fid("filter_test.bin",std::ios::binary);
+    filter_fid.write((char*)h_filter,2*cg.n_channels_oversampled*sizeof(float));
+
     cudaMemcpyToSymbol(d_filter,h_filter,2*cg.n_channels_oversampled*sizeof(float),0,cudaMemcpyHostToDevice);
 
     // Configure textures (see rebin_filter.cuh)
@@ -115,7 +125,7 @@ void rebin_nffs(struct recon_metadata *mr){
     cudaMallocArray(&cu_raw_2,&channelDesc,cg.n_channels,mr->ri.n_proj_pull);
 
     // Kernel Dimensions
-    dim3 rebin_threads(32,32);
+    dim3 rebin_threads(8,8);
     dim3 rebin_blocks(cg.n_channels_oversampled/rebin_threads.x,mr->ri.n_proj_pull/rebin_threads.y);
 
     // Determine the number of threads needed based on the #define N_PIX (found in rebin_filter.cuh)
@@ -126,13 +136,17 @@ void rebin_nffs(struct recon_metadata *mr){
     unsigned int shared_size=cg.n_channels_oversampled*sizeof(float)+2*cg.n_channels_oversampled*sizeof(float); // row+filter;
     
     // Reshape raw data into row sheets
+    std::cout << cg.n_channels << std::endl;
+    std::cout << cg.n_rows_raw << std::endl;
+    std::cout << cg.n_rows << std::endl;
+    std::cout << mr->ri.n_proj_pull << std::endl;
     float * sheets=(float*)calloc(cg.n_channels*cg.n_rows_raw*mr->ri.n_proj_pull,sizeof(float));
-    for (int i=0;i<cg.n_rows_raw;i++){
-	for (int j=0;j<cg.n_channels;j++){
-	    for (int k=0;k<mr->ri.n_proj_pull;k++){
-		int out_idx= i*cg.n_channels*mr->ri.n_proj_pull+k*cg.n_channels+j;
-		int in_idx = k*cg.n_channels*cg.n_rows_raw+i*cg.n_channels+j;
-		sheets[out_idx]=mr->ctd.raw[in_idx];
+    for (int i=0;i<(int)cg.n_rows_raw;i++){
+      for (int j=0;j<(int)cg.n_channels;j++){
+        for (int k=0;k<(int)mr->ri.n_proj_pull;k++){
+                int in_idx = k*(int)cg.n_channels*(int)cg.n_rows_raw+i*(int)cg.n_channels+j;
+                int out_idx= i*(int)cg.n_channels*(int)mr->ri.n_proj_pull+k*(int)cg.n_channels+j;
+                sheets[out_idx]=mr->ctd.raw[in_idx];
 	    }
 	}
     }
@@ -160,23 +174,23 @@ void rebin_nffs(struct recon_metadata *mr){
     //Reshape data into our mr structure
     cudaMalloc(&mr->ctd.d_rebin,cg.n_channels_oversampled*cg.n_rows*(mr->ri.n_proj_pull/mr->ri.n_ffs-2*cg.add_projections)*sizeof(float));
 
-    n_threads=128;
+    n_threads=8;
     size_t n_proj_out=(mr->ri.n_proj_pull/mr->ri.n_ffs-2*cg.add_projections);
     dim3 threads_reshape_out(n_threads,1,1);
-    dim3 blocks_reshape_out(n_proj_out/n_threads,cg.n_channels_oversampled,cg.n_rows);        
+    dim3 blocks_reshape_out(n_proj_out/n_threads,cg.n_channels_oversampled,cg.n_rows);
 
     reshape_out<<<blocks_reshape_out,threads_reshape_out>>>(mr->ctd.d_rebin,d_output);
 
     // Check "testing" flag, write rebin to disk if set
-    if (mr->flags.testing){
-	cudaMemcpy(mr->ctd.rebin,mr->ctd.d_rebin,cg.n_channels_oversampled*cg.n_rows*(mr->ri.n_proj_pull/mr->ri.n_ffs-2*cg.add_projections)*sizeof(float),cudaMemcpyDeviceToHost);
-	char fullpath[4096+255];
-	strcpy(fullpath,mr->rp.output_dir);
-	strcat(fullpath,"/rebin.ct_test");
-	FILE * outfile=fopen(fullpath,"w");
-	fwrite(mr->ctd.rebin,sizeof(float),cg.n_channels_oversampled*cg.n_rows*(mr->ri.n_proj_pull-2*cg.add_projections_ffs)/mr->ri.n_ffs,outfile);
-	fclose(outfile);
-    }
+    //if (mr->flags.testing){
+    cudaMemcpy(mr->ctd.rebin,mr->ctd.d_rebin,cg.n_channels_oversampled*cg.n_rows*(mr->ri.n_proj_pull/mr->ri.n_ffs-2*cg.add_projections)*sizeof(float),cudaMemcpyDeviceToHost);
+    char fullpath[4096+255];
+    strcpy(fullpath,mr->rp.output_dir);
+    strcat(fullpath,"/rebin.ct_test");
+    FILE * outfile=fopen(fullpath,"w");
+    fwrite(mr->ctd.rebin,sizeof(float),cg.n_channels_oversampled*cg.n_rows*(mr->ri.n_proj_pull-2*cg.add_projections_ffs)/mr->ri.n_ffs,outfile);
+    fclose(outfile);
+    //}
 
     cudaFree(d_output);
     
@@ -966,8 +980,8 @@ void generate_filter(float * f_array,struct recon_metadata * mr, float c, float 
   
   //float * h_filter=(float*)calloc(2*cg.n_channels_oversampled,sizeof(float));
   //float ds = mr->cg.r_f*sin(mr->cg.fan_angle_increment/2.0f); // This is at isocenter.  Is that correct?
-  
-  //const float pi = 3.141592653589f;
+
+  float pi_f = 3.141592653589f;
   float ds = mr->cg.src_to_det*sin(mr->cg.fan_angle_increment/2.0f); // I think it should be at the detector
 
   auto r = [](float t)-> float{
@@ -976,12 +990,16 @@ void generate_filter(float * f_array,struct recon_metadata * mr, float c, float 
                v=0.5;
              return v;
            };
+  
+  int test = (int)mr->cg.n_channels_oversampled;
+  
+  for (int i = -test;i < test;i++){
+    
 
-  //f=(c^2/(2*ds))*(a*r(c*pi*k)+((1-a)/2)*r(pi*c*k+pi)+((1-a)/2)*r(pi*c*k-pi));
-  for (int i=-mr->cg.n_channels_oversampled; i < mr->cg.n_channels_oversampled;i++){
-    f_array[i+mr->cg.n_channels_oversampled] = (c*c/(2.0f*ds)) * (a*r(c*pi*i) +
-                                                                  (((1.0f-a)/2.0f)*r(pi*c*i + pi)) +
-                                                                  (((1.0f -a)/2.0f)*r(pi*c*i-pi)));
+    f_array[i+mr->cg.n_channels_oversampled] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
+                                                                  (((1.0f-a)/2.0f)*r(pi_f*c*i + pi_f)) +
+                                                                  (((1.0f -a)/2.0f)*r(pi_f*c*i-pi_f)));
+    
   }
   
 }

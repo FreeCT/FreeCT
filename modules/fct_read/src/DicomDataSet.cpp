@@ -90,18 +90,21 @@ namespace fct{
       // Convert the pixel data into an row-major Eigen matrix
       // Note: m_projection is always row major, where rows correspond to detector rows
       uint16_t * tmp_ptr = (uint16_t *)raw_pixel_data;
-      
+
+      // It is not clear if this will always work.
+      // Default for Eigen is Column major however 
       if (rows == m_detector_rows){
         Eigen::Map<Eigen::Matrix<uint16_t,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>> tmp_map(tmp_ptr,m_detector_rows,m_detector_channels);
         m_projection = (float)rescale_slope*tmp_map.cast<float>() + (float)rescale_intercept * Eigen::MatrixXf::Ones(m_detector_rows,m_detector_channels);  
       }
       else if (rows == m_detector_channels){
         Eigen::Map<Eigen::Matrix<uint16_t,Eigen::Dynamic,Eigen::Dynamic,Eigen::ColMajor>> tmp_map(tmp_ptr,m_detector_rows,m_detector_channels);
-        m_projection = (float)rescale_slope*tmp_map.cast<float>() + (float)rescale_intercept * Eigen::MatrixXf::Ones(m_detector_rows,m_detector_channels);  
+        m_projection = (float)rescale_slope*tmp_map.cast<float>() + (float)rescale_intercept * Eigen::MatrixXf::Ones(m_detector_rows,m_detector_channels);
       }
       else{
         error_with_message("Rows/Cols does not match DetectorRows or DetectorChannels. Cannot read file!");
-      }  
+      }
+      
     }
 
     return true;
