@@ -60,23 +60,27 @@ Short-term goal is to get SOMETHING running for the LDCT dataset.  This primaril
 Timeline for work: 2 weeks - 1 month 
 
 * Convert FreeCT_Reader to support TCIA DICOM format (**done**)
-* Modify FreeCT_wFBP setup.cu: support reading scanner data directly from RawDataSet class (*in progress*)
-* Modify FreeCT_wFBP setup.cu: New structure for YAML input files
-* Any required modifications to the reconstruction process b/c of new input structures
+* Modify FreeCT_wFBP setup.cu: support reading scanner data directly from RawDataSet class (**done**)
+* Modify FreeCT_wFBP setup.cu: New structure for YAML input files (**done**)
+* Migrate all project components (Reader, WFBP, ICD) into a single repository (this repository) with a unified build process (**done**)
+* Any required modifications to the reconstruction process b/c of new input structures (*in progress*)
+  * On-the-fly generation of filter kernels required to reconstruct GE, replace old file-based system (**maybe done** needs validation)
+  * Debugging to get everything running (*in progress*)
 * Set up a continuous integration system to keep users up to date on build status of FreeCT components
 
-(updated on 2020/07/01)
+(updated on 2020/07/06)
 
 ## Mid-term work to improve FreeCT usability
 Larger, project-level restructuring to make downloading, building, and installing required FreeCT components easier.  This will necessitate a license change (likely going to Apache 2.0 license.)
 
 Timeline for work: 2 - 6 months 
 
-* Migrate all project components (Reader, WFBP, ICD) into a single repository (this repository) with a unified build process
+* Unit tests to improve development process 
+* Convert filtering in WFBP to use CuFFTW
 * Unified configuration file structure/parsing framework
 * Packaging of the project Ubuntu (and potentially other high-use OSes)
 
-(updated on 2020/06/28)
+(updated on 2020/07/06)
 
 ## Long-term work
 Timeline for work: 6 months-???
