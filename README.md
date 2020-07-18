@@ -1,6 +1,11 @@
 # FreeCT
 
-**Current status (2020/07/17):**  WFPB is "working" for GE data... mostly.  The tube start angle is not being configured correctly so reconstructions end up rotated at odd angles depending on the reconstructed slices.  I am working on this, however I do not have an estimate on how long the fix may take.  After I resolve this, I will work to address the Siemens data, and then move on to broader FreeCT updates.
+**Current status (2020/07/17):**  WFPB is "working" for GE data... mostly.  The tube start angle is not being configured correctly so reconstructions end up rotated at odd angles depending on the reconstructed slices (visible in the sample image below.)  I am working on this, however I do not have an estimate on how long the fix may take.  After I resolve this, I will work to address the Siemens data, and then move on to broader FreeCT updates.
+
+### Sample TCIA Reconstructed Slice (2020/07/17)
+
+![sample_slice](resources/ge_sample_20200717.png)
+
 
 FreeCT is open source reconstruction software for clinical 3rd generation, fan-beam CT.
 
