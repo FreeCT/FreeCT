@@ -46,9 +46,14 @@ int backproject(struct recon_metadata * mr){
     struct ct_geom cg=mr->cg;
 
     //float tube_start=mr->tube_angles[mr->ri.idx_pull_start+cg.add_projections_ffs]*pi/180;
+    //float tube_start=mr->tube_angles[mr->ri.idx_pull_start+cg.add_projections_ffs];
 
-    float tube_start=fmod((double)(mr->tube_angles[0]+((mr->ri.idx_pull_start+cg.add_projections_ffs)*360.0f/cg.n_proj_ffs)),360.0)*pi/180.0f;
+    //float tube_start=mr->tube_angles[mr->ri.idx_pull_start + cg.add_projections_ffs];
 
+    //float tube_start=fmod((double)(mr->tube_angles[0]+((mr->ri.idx_pull_start+cg.add_projections_ffs)*360.0f/cg.n_proj_ffs)),360.0)*pi/180.0f;
+
+    float tube_start=mr->tube_angles[0]-((mr->ri.idx_pull_start+cg.add_projections_ffs)/cg.n_proj_ffs)*2.0f*pi;
+    
     int n_half_turns=(mr->ri.n_proj_pull/mr->ri.n_ffs-2*cg.add_projections)/(cg.n_proj_turn/2);
     
     cudaStream_t stream1,stream2;
@@ -88,8 +93,6 @@ int backproject(struct recon_metadata * mr){
     dim3 blocks(mr->rp.nx/Bx,mr->rp.ny/By,mr->ri.n_slices_block/K);
 
     for (int i=0;i<cg.n_proj_turn/2;i+=I*2){
-
-      std::cout << "doing some stuff " << i <<std::endl;
 	for (int k=0;k<n_half_turns;k++){
 	    cudaMemcpyToArrayAsync(cu_proj_1,0,k*I*cg.n_rows,&mr->ctd.d_rebin[(i+k*cg.n_proj_turn/2)*cg.n_rows*cg.n_channels_oversampled],I*cg.n_rows*cg.n_channels_oversampled*sizeof(float),cudaMemcpyDeviceToDevice,stream1);
 	}
@@ -113,8 +116,8 @@ int backproject(struct recon_metadata * mr){
     std::cout << "Block offset: " << block_offset << std::endl;
     cudaMemcpy(&mr->ctd.image[block_offset],d_output,mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block*sizeof(float),cudaMemcpyDeviceToHost);
 
-    std::ofstream debug_file("raw_recon_block.dat",std::ios::binary);
-    debug_file.write((char*)&mr->ctd.image[block_offset],mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block*sizeof(float));
+    //std::ofstream debug_file("raw_recon_block.dat",std::ios::binary);
+    //debug_file.write((char*)&mr->ctd.image[block_offset],mr->rp.nx*mr->rp.ny*mr->ri.n_slices_block*sizeof(float));
     
     cudaFree(mr->ctd.d_rebin);
     cudaFree(d_output);

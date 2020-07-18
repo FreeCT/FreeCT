@@ -22,7 +22,7 @@
 
 #define pi 3.1415368979f
 #define K 1
-#define I 16
+#define I 1
 
 texture<float,cudaTextureType2D,cudaReadModeElementType> tex_a;
 texture<float,cudaTextureType2D,cudaReadModeElementType> tex_b;
@@ -72,7 +72,9 @@ __global__ void bp_a(float * output,int proj_idx,float tube_start,int n_half_tur
 	}
 	
 	for (int k=0;k<n_half_turns;k++){
-	    float theta=tube_start+(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)+k*pi;
+          float theta=tube_start+(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)+k*pi;
+          //float theta=tube_start-(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)-k*pi;
+          //float theta=fmod(tube_start-(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)-k*pi,2.0f*pi);
 	    float phat=x*sinf(theta)-y*cosf(theta);
 	    float p_idx=phat/(d_cg.r_f*d_cg.fan_angle_increment/2.0f)+2.0f*d_cg.central_channel;
                 
@@ -148,7 +150,8 @@ __global__ void bp_b(float * output,int proj_idx,float tube_start,int n_half_tur
 	}
 	
 	for (int k=0;k<n_half_turns;k++){
-	    float theta=tube_start+(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)+k*pi;
+          float theta=tube_start+(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)+k*pi;
+          //float theta=fmod(tube_start-(2.0f*pi/d_cg.n_proj_turn)*(proj_idx+i)-k*pi,2.0f*pi);
 	    float phat=x*sinf(theta)-y*cosf(theta);
 	    float p_idx=phat/(d_cg.r_f*d_cg.fan_angle_increment/2.0f)+2.0f*d_cg.central_channel;
 	    

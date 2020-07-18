@@ -198,6 +198,8 @@ struct ct_geom configure_ct_geom(struct recon_metadata *mr){
     cg.r_f             = ds->getDistSourceToIsocenter(); 
     cg.src_to_det      = ds->getDistSourceToDetector();
     cg.central_channel = ds->getDetectorCentralChannel();
+    cg.central_channel = ds->getDetectorCentralChannel();
+    //cg.central_channel = 44.75f;
     cg.n_rows          = ds->getDetectorRows();
     cg.n_channels      = ds->getDetectorChannels();
     cg.n_channels_oversampled = 2 * ds->getDetectorChannels();
@@ -288,7 +290,7 @@ void configure_reconstruction(struct recon_metadata *mr, std::shared_ptr<fct::Ra
     
     for (int i=0;i<rp.n_readings;i++){
       mr->table_positions[i] = ds->getTablePosition(i);
-      mr->tube_angles[i]     = ds->getTubeAngle(i);      
+      mr->tube_angles[i]     = ds->getTubeAngle(i);
     }
 
     /* --- Figure out how many and which projections to grab --- */
@@ -512,14 +514,14 @@ void extract_projections(struct recon_metadata * mr,std::shared_ptr<fct::RawData
     //mr->ctd.raw[j+cg.n_channels*cg.n_rows_raw*i]=frame_holder[j]
     
     // Check "testing" flag, write raw to disk if set
-    //if (mr->flags.testing){
+    if (mr->flags.testing){
       //memset(fullpath,0,4096+255);
         strcpy(fullpath,mr->rp.output_dir);
         strcat(fullpath,"/raw.ct_test");
         FILE * outfile=fopen(fullpath,"w");
         fwrite(mr->ctd.raw,sizeof(float),mr->cg.n_channels*mr->cg.n_rows_raw*mr->ri.n_proj_pull,outfile);
         fclose(outfile);
-        //}
+    }
     
     //fclose(raw_file);
     //free(frame_holder);

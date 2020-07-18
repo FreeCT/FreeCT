@@ -59,6 +59,7 @@ void parse_config(std::string config_file, struct recon_params * rp){
     strcpy(rp->raw_data_dir,tmp.c_str());
     parse_string("output_dir",tmp,config);
     strcpy(rp->output_dir,tmp.c_str());
+    strcpy(rp->output_file,(config_file+"_recon.dat").c_str());
     //parse_item(output_dir,std::string);
     
     parse_item(start_pos,float);

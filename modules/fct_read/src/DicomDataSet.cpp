@@ -103,8 +103,7 @@ namespace fct{
       }
       else{
         error_with_message("Rows/Cols does not match DetectorRows or DetectorChannels. Cannot read file!");
-      }
-      
+      }      
     }
 
     return true;
@@ -282,8 +281,11 @@ namespace fct{
     printf("Reading %05zu/%05zu",(size_t)0,m_file_list.size());
     int count  = 0;
     for (size_t i=0;i<m_file_list.size();i++){
-      printf("\b\b\b\b\b\b\b\b\b\b\b");
-      printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
+
+      if (i%100==0){
+        printf("\b\b\b\b\b\b\b\b\b\b\b");
+        printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
+      }
       
       std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
       bool success = rdf->readFromFile(m_file_list[i]);
