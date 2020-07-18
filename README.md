@@ -1,6 +1,6 @@
 # FreeCT
 
-**Current status (2020/07/14):**  WFPB is nearly working.  Rebinning is still a bit broken, however I have been able to get data read directly from TCIA DICOM all the way through the pipeline. We just need to address the reversal of row indexing in the GE data relative to the assumptions made for the data FreeCT was developed on (Siemens data).
+**Current status (2020/07/17):**  WFPB is "working" for GE data... mostly.  The tube start angle is not being configured correctly so reconstructions end up rotated at odd angles depending on the reconstructed slices.  I am working on this, however I do not have an estimate on how long the fix may take.  After I resolve this, I will work to address the Siemens data, and then move on to broader FreeCT updates.
 
 FreeCT is open source reconstruction software for clinical 3rd generation, fan-beam CT.
 
@@ -26,7 +26,22 @@ Best,
 John
 
 ## Building FreeCT
+### Dependencies
+FreeCT depends on several external packages:
 
+* [DCMTK](https://dcmtk.org/) for DICOM support
+* [YAML-cpp](https://github.com/jbeder/yaml-cpp) for YAML parsing 
+* [Boost](https://www.boost.org/)
+* [FFTW3](http://fftw.org/) 
+
+The easiest way to install these is via your system package manager.  
+
+On Ubuntu 18.04:
+
+```bash
+sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libfftw3-dev 
+```
+### Build the FreeCT applications (after dependencies have been installed)
 To build, we follow a standard CMake workflow:
 
 ```bash
@@ -42,23 +57,8 @@ Individual targets can be build if you don't want to build everything:
 ```
 make -j5 fct_read
 make -j5 fct_read_util
-make -j5 fct_wfbp # BUILDING BUT NOT RUNNING
+make -j5 fct_wfbp # BUILDING AND RUNNING ON GE DATA
 make -j5 fct_icd  # NOT BUILDING
-```
-### Dependencies
-FreeCT depends on several external packages:
-
-* [DCMTK](https://dcmtk.org/) for DICOM support
-* [YAML-cpp](https://github.com/jbeder/yaml-cpp) for YAML parsing 
-* [Boost](https://www.boost.org/)
-* [FFTW3](http://fftw.org/) 
-
-The easiest way to install these is via your system package manager.  
-
-On Ubuntu 18.04:
-
-```bash
-sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libfftw3-dev 
 ```
 
 We will do our best to add support for other platforms (or please create a pull request if you would like to add instructions on installing dependencies for other platforms)
@@ -75,10 +75,11 @@ Timeline for work: 2 weeks - 1 month
 * Migrate all project components (Reader, WFBP, ICD) into a single repository (this repository) with a unified build process (**done**)
 * Any required modifications to the reconstruction process b/c of new input structures (*in progress*)
   * On-the-fly generation of filter kernels required to reconstruct GE, replace old file-based system (**done** and validated!)
-  * Debugging to get everything running (*in progress*)
+  * Debugging on GE data (*nearly completed*)
+  * Debugging on Siemens data
 * Set up a continuous integration system to keep users up to date on build status of FreeCT components
 
-(updated on 2020/07/14)
+(updated on 2020/07/17)
 
 ## Mid-term work to improve FreeCT usability
 Larger, project-level restructuring to make downloading, building, and installing required FreeCT components easier.  This will necessitate a license change (likely going to Apache 2.0 license.)
