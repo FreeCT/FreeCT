@@ -38,13 +38,15 @@ FreeCT depends on several external packages:
 * [YAML-cpp](https://github.com/jbeder/yaml-cpp) for YAML parsing 
 * [Boost](https://www.boost.org/)
 * [FFTW3](http://fftw.org/) 
+* [Eigen 3](https://eigen.tuxfamily.org/index.php?title=Main_Page)
+* [NVidia CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
 
 The easiest way to install these is via your system package manager.  
 
 On Ubuntu 18.04:
 
 ```bash
-sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libfftw3-dev 
+sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libfftw3-dev libeigen3-dev nvidia-cuda-toolkit
 ```
 ### Build the FreeCT applications (after dependencies have been installed)
 To build, we follow a standard CMake workflow:
