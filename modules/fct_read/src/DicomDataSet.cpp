@@ -165,7 +165,7 @@ namespace fct{
     dict.addEntry(new DcmDictEntry(0x7041,0x1001,DcmEVR::EVR_DS,"WaterAttenuationCoefficient"         ,1,1,NULL,false,NULL));
     dict.addEntry(new DcmDictEntry(0x7031,0x1033,DcmEVR::EVR_FL,"DetectorCentralElement"              ,2,2,NULL,false,NULL));
     //new DcmDictEntry(0x7033,0x1065,DcmEVR::EVR_FL,"PhotonStatistics	1-n	PrivateTag
-    dcmDataDict.unlock();
+    dcmDataDict.wrunlock();
     
   }
 

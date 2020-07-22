@@ -1,0 +1,31 @@
+package_update: true
+
+packages:
+  - libdcmtk-dev
+  - libyaml-cpp-dev
+  - libboost-all-dev
+  - libfftw3-dev
+  - libeigen3-dev
+  - nvidia-cuda-toolkit
+  - build-essential
+  - cmake
+
+runcmd:
+  # Get FFTW3 and build
+  - 'mkdir -v /run/FREECT'
+  - 'cd /run/FREECT/'
+  - 'wget http://fftw.org/fftw-3.3.8.tar.gz'
+  - 'tar -xvf /run/FREECT/fftw-3.3.8.tar.gz'
+  - 'cd fftw-3.3.8 && mkdir build && cd build'
+  - 'cmake ../ && sudo make install'
+  
+# # - [mkdir, build]
+# # - [cd, build]
+# # - [cmake,"../"]
+# # - [sudo,make,install]
+  #
+  ## Clone FreeCT
+  - 'cd /run/FREECT/'
+  - 'git clone https://github.com/FreeCT/FreeCT.git'
+  - 'cd FreeCT && mkdir build && cd build'
+  - 'cmake ../'
