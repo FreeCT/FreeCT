@@ -82,7 +82,7 @@ namespace fct{
     virtual void readProjection(int projection_idx) = 0;
     virtual void readAll() = 0;
 
-    void writeReconFile(std::string filepath);
+    void writeReconFile(std::string filepath,bool single_slice_mode = false);
     void writeAll(std::string dirpath);
 
     void printMetadata();

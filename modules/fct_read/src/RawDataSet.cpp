@@ -44,19 +44,26 @@ namespace fct{
     ye << YAML::EndMap;    
   };
 
-  void RawDataSet::writeReconFile(std::string filepath){
+  void RawDataSet::writeReconFile(std::string filepath, bool single_slice_mode){
     // We pick some "sane" defaults (could likely be improved based on data we can get out of
     // DICOM.  Will look more into this in the future.)
     //RawDataFrame start = (*m_data.front());
     //RawDataFrame end = (*m_data.back());
-    
+
     YAML::Emitter ye;
 
     ye << YAML::BeginMap;
     ye << YAML::Key << "raw_data_dir" << YAML::Value << m_path;
     ye << YAML::Key << "output_dir" << YAML::Value << "./" ;
-    ye << YAML::Key << "start_pos" << YAML::Value << m_data.front()->getDFCAxialPosition();
-    ye << YAML::Key << "end_pos" << YAML::Value << m_data.back()->getDFCAxialPosition();
+    
+    if (single_slice_mode){
+      ye << YAML::Key << "start_pos" << YAML::Value << (m_data.front()->getDFCAxialPosition() + m_data.back()->getDFCAxialPosition())/2.0f;
+      ye << YAML::Key << "end_pos"   << YAML::Value << (m_data.front()->getDFCAxialPosition() + m_data.back()->getDFCAxialPosition())/2.0f;
+    }
+    else{
+      ye << YAML::Key << "start_pos" << YAML::Value << m_data.front()->getDFCAxialPosition();
+      ye << YAML::Key << "end_pos" << YAML::Value << m_data.back()->getDFCAxialPosition();
+    }
     ye << YAML::Key << "recon_fov" << YAML::Value << 500.0f;
     //ye << YAML::Key << "slice_thickness" << YAML::Value << m_detector_transverse_spacing;
     //ye << YAML::Key << "slice_thickness" << YAML::Value << m_detector_axial_spacing;

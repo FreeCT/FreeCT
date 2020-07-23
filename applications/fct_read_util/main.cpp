@@ -21,6 +21,7 @@ int main(int argc, char ** argv){
   std::string input_dirpath = "";
   std::string output_dirpath = "";
   std::string recon_filepath = "";
+  bool single_slice_mode = false;
   
   // Parse command line arguments
   if (argc<5){
@@ -41,7 +42,10 @@ int main(int argc, char ** argv){
 
     else if (arg=="-r")
       recon_filepath = argv[++i];
-      
+
+    else if (arg=="--single-slice")
+      single_slice_mode = true;
+    
     else{
       std::string message = "Unrecognized option \"" + std::string(argv[i]) +  "\" requested";
       error_out(message);
@@ -79,7 +83,7 @@ int main(int argc, char ** argv){
   ds->readAll();
 
   if (recon_filepath!="")
-    ds->writeReconFile(recon_filepath);
+    ds->writeReconFile(recon_filepath,single_slice_mode);
   
   if (output_dirpath!="")
     ds->writeAll(output_dirpath);
