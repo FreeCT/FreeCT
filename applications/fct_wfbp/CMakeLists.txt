@@ -8,10 +8,10 @@ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 find_package(FFTW3 REQUIRED)
 
-file(GLOB SOURCES src/*.cu)
+file(GLOB SOURCES src/*.cu src/*.cpp)
 add_executable(fct_wfbp ${SOURCES})
 add_dependencies(fct_wfbp fct_read)
 
 message("${INCLUDE_DIRS}")
 target_include_directories(fct_wfbp PRIVATE include/ ${INCLUDE_DIRS} ${FFTW3_INCLUDE_DIRS})
-target_link_libraries(fct_wfbp PRIVATE ${FFTW3_LIBRARIES} yaml-cpp fct_read)
+target_link_libraries(fct_wfbp PRIVATE Boost::system Boost::filesystem ${FFTW3_LIBRARIES} yaml-cpp fct_read)

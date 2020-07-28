@@ -1,111 +1,105 @@
-/* FreeCT_ICD is MBIR CT reconstruction Software */
-/* Copyright (C) 2018  John Hoffman, Stefano Young, Frederic Noo */
-
-/* This program is free software; you can redistribute it and/or */
-/* modify it under the terms of the GNU General Public License */
-/* as published by the Free Software Foundation; either version 2 */
-/* of the License, or (at your option) any later version. */
-
-/* This program is distributed in the hope that it will be useful, */
-/* but WITHOUT ANY WARRANTY; without even the implied warranty of */
-/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
-/* GNU General Public License for more details. */
-
-/* You should have received a copy of the GNU General Public License */
-/* along with this program; if not, write to the Free Software */
-/* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. */
-
-/* Questions and comments should be directed to */
-/* jmhoffman@mednet.ucla.edu with "FreeCT_ICD" in the subject line*/
-
+#include <parse_config.h>
 #include <iostream>
-#include "recon_structs.h"
-#include "parse_config.h"
 #include <yaml-cpp/yaml.h>
 
 // Macro that actually reads our YAML and handles keyword detection
-#define parse_item(TAG_NAME,TYPE) try{\
-    std::cout << #TAG_NAME": " ;                                      \
-    for (int i=0; i< 35-sizeof(#TAG_NAME);i++){std::cout << " ";}     \
-    rp->TAG_NAME=config[#TAG_NAME].as<TYPE>();                        \
-    std::cout << "FOUND "  << std::endl;                              \
-    }catch(YAML::RepresentationException& e){std::cout << "NOT FOUND" << std::endl;}
+// I don't love doing this with a macro, but it works pretty well
+// so I'm not going to change it for the time being.
+#define parse_item(TAG_NAME,TYPE) try{                                  \
+    std::cout << #TAG_NAME": " ;                                        \
+    for (size_t i=0; i< (size_t)35-sizeof(#TAG_NAME);i++){std::cout << " ";}  \
+    rp.TAG_NAME=config[#TAG_NAME].as<TYPE>();                          \
+    std::cout << "FOUND ("  <<  rp.TAG_NAME << ")"  <<std::endl;       \
+  }catch(YAML::RepresentationException& e){std::cout << "NOT FOUND" << std::endl;}
 
-void parse_config(std::string config_file, struct recon_params * rp){
-    // Load our YAML config file
-    std::cout << "Config File: " << config_file << std::endl;    
-    YAML::Node config = YAML::LoadFile(config_file);
-    std::cout << std::endl;
+namespace{
+  void parse_string(std::string tagname, std::string& value, YAML::Node& config){
+    try{
+      std::cout << tagname + ": " ;                                      
+      for (size_t i=0; i< 35-tagname.length()-1;i++){
+        std::cout << " ";
+      }     
+      value=config[tagname].as<std::string>();
+      std::cout << "FOUND ("  <<  value << ")"  << std::endl;
+    }
+    catch(YAML::RepresentationException& e){
+      std::cout << "NOT FOUND" << std::endl;
+    }    
+  }
+}
 
-    // Pertinent paths block
-    parse_item(initial_recon_path,std::string);
-    parse_item(matrix_path,std::string);
-    parse_item(output_dir,std::string);
-    parse_item(output_file,std::string);
-    parse_item(potential,std::string);
-    parse_item(recon_path,std::string);
-    parse_item(sinogram_path,std::string);
+void parse_config(std::string config_file, ReconConfig& rp){
+  // Load our YAML config file
+  std::cout << "Config File: " << config_file << std::endl;    
+  YAML::Node config = YAML::LoadFile(config_file);
+  std::cout << std::endl;
 
-    // Scanner Geometry
-    parse_item(acquisition_fov,double);
-    parse_item(anode_angle,double);
-    parse_item(axial_detector_spacing,double);
-    parse_item(axial_focal_spot_shift,double);
-    parse_item(center_channel_non_ffs,double);
-    parse_item(center_row,double);
-    parse_item(focal_spot_radius,double);
-    parse_item(n_channels,size_t);
-    parse_item(num_views_per_turn_without_ffs,size_t);
-    parse_item(source_detector_distance,double);
-    parse_item(transaxial_detector_spacing,double);
-    parse_item(transaxial_focal_spot_shift,double);
-    parse_item(fan_angle_increment,double);
+  //parse_item(raw_data_dir,std::string);rp- std::string tmp;
+  std::string tmp;
+  parse_string("raw_data_dir",tmp,config);
+  strcpy(rp.raw_data_dir,tmp.c_str());
+  parse_string("output_dir",tmp,config);
+  strcpy(rp.output_dir,tmp.c_str());
+  strcpy(rp.output_file,(config_file+"_recon.dat").c_str());
+  //parse_item(output_dir,std::string);
+    
+  parse_item(start_pos,float);
+  parse_item(end_pos,float);
+  parse_item(recon_fov,double);
+  parse_item(slice_thickness,double);
+  parse_item(nx,size_t);
+  parse_item(ny,size_t);
+  parse_item(recon_kernel,int);
+  parse_item(x_origin,float);
+  parse_item(y_origin,float);
+  parse_item(tube_angle_offset,float);
+  parse_item(adaptive_filtration_s,float);
+    
+  // Deprecated
+  // ========================================
+  // parse_item(dx,double);
+  // parse_item(dy,double);
+  // parse_item(dz,double);
+  // parse_item(fov_radius,double);
+  // parse_item(center_voxel_x,double);
+  // parse_item(center_voxel_y,double);
+  // parse_item(center_voxel_z,double);
+  // parse_item(nz,size_t);
+}
 
-    // Iterative Recon parameters
-    parse_item(penalty,std::string);
-    parse_item(lambda,double);
-    parse_item(delta,double);
-    parse_item(num_iterations,size_t);
-    parse_item(num_views_for_system_matrix,size_t);
+void configure_ct_geometry(std::shared_ptr<fct::RawDataSet> ds,CTGeometry& cg){
+  // Physical geometry of the scanner (cannot change from scan to scan)
+  
+  cg.total_number_of_projections = ds->getTotalNumProjections();
+  cg.distance_source_to_isocenter = ds->getDistSourceToIsocenter(); 
+  cg.distance_source_to_detector  = ds->getDistSourceToDetector();
+  cg.detector_central_col         = ds->getDetectorCentralChannel();
+  cg.detector_central_row         = ds->getDetectorCentralRow();
+  cg.num_detector_cols            = ds->getDetectorChannels();
+  cg.num_detector_rows            = ds->getDetectorRows();
+    
+  cg.projections_per_rotation     = ds->getProjectionsPerRotation();
+  cg.collimated_slice_width       = ds->getDistSourceToIsocenter()*(ds->getDetectorAxialSpacing()/ds->getDistSourceToDetector());
+  
+  cg.z_rot = ds->getTablePosition(cg.projections_per_rotation-1) - ds->getTablePosition(0);
+  
+  float detector_cone_offset = ((float)(cg.num_detector_rows - 1))/2.0f; // May not be 100% accurate if central detector is not necessarily in the middle
+  cg.theta_cone=2.0f*atan(detector_cone_offset * cg.collimated_slice_width/cg.distance_source_to_isocenter);
 
-    // Scan specific parameters
-    parse_item(first_view_angle,double);
-    parse_item(num_z_ffs,size_t);
-    parse_item(num_phi_ffs,size_t);
-    parse_item(num_views,size_t);
-    parse_item(table_feed_per_rotation,double);
-    parse_item(tube_angle_increment,double);
-    parse_item(z_end,double);
-    parse_item(z_first_view,double);
-    parse_item(z_good_slice,double);
-    parse_item(z_matrix_start,double);
-    parse_item(z_start,double);
-
-    // Recon Geometry
-    parse_item(recon_fov,double);
-    parse_item(nx,size_t);
-    parse_item(ny,size_t);
-    parse_item(slice_thickness,double);
-
-    // John's Additions
-    parse_item(FileType,size_t);
-    parse_item(FileSubType,size_t);
-    parse_item(RawOffset,size_t);
-    parse_item(Readings,size_t);
-    parse_item(Zffs,size_t);
-    parse_item(Phiffs,size_t);
-    parse_item(CollSlicewidth,double);
-    parse_item(Nrows,size_t);
-    parse_item(wfbp_initialize,size_t);
-
-    // Deprecated
-    // ========================================
-    // parse_item(dx,double);
-    // parse_item(dy,double);
-    // parse_item(dz,double);
-    // parse_item(fov_radius,double);
-    // parse_item(center_voxel_x,double);
-    // parse_item(center_voxel_y,double);
-    // parse_item(center_voxel_z,double);
-    // parse_item(nz,size_t);
+  cg.acquisition_field_of_view = 2.0f * cg.distance_source_to_isocenter*sin((float(cg.num_detector_cols-1.0f)/2.0f) * ds->getDetectorTransverseSpacing() * (1.0f/cg.distance_source_to_detector));
+  
+  std::cout << "CT Geometry and Scan derived parameters: "   << std::endl;
+  std::cout << "===========================================" << std::endl;
+  std::cout << "Num projections per turn:           "        << cg.projections_per_rotation     << std::endl;
+  std::cout << "Num detector channels:              "        << cg.num_detector_cols            << std::endl;
+  std::cout << "Num detector rows:                  "        << cg.num_detector_rows            << std::endl;
+  std::cout << "Radius src->isocenter (mm):         "        << cg.distance_source_to_isocenter << std::endl;
+  std::cout << "Radius src->detector (mm):          "        << cg.distance_source_to_detector  << std::endl;
+  std::cout << "Table feed per rotation (mm):       "        << cg.z_rot                        << std::endl;
+  std::cout << "Theta cone (rad):                   "        << cg.theta_cone                   << std::endl;
+  std::cout << "Central channel:                    "        << cg.detector_central_col         << std::endl;
+  std::cout << "Central row:                        "        << cg.detector_central_row         << std::endl;
+  std::cout << "Acquisition FOV (mm):               "        << cg.acquisition_field_of_view    << std::endl;  
+  std::cout << "Collimated slicewidth at isocenter: "        << cg.collimated_slice_width       << std::endl;
+  
 }
