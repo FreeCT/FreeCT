@@ -3,19 +3,19 @@
 #include <cstddef>
 
 struct CTGeometry{
-  size_t total_number_of_projections;
-  size_t projections_per_rotation;
-  float detector_pixels_size_col;
-  float detector_pixels_size_row;
-  size_t num_detector_cols; // "Channels"
-  size_t num_detector_rows;
-  float detector_central_col;
-  float detector_central_row;
-  float distance_source_to_detector;
-  float distance_source_to_isocenter;
+  size_t total_number_of_projections; //
+  size_t projections_per_rotation; //
+  float detector_pixel_size_col;//
+  float detector_pixel_size_row;//
+  size_t num_detector_cols; // "Channels" //
+  size_t num_detector_rows;//
+  float detector_central_col;//
+  float detector_central_row;//
+  float distance_source_to_detector;//
+  float distance_source_to_isocenter;//
   float collimated_slice_width; // Native detector slice thickness
-  float theta_cone;
-  float acquisition_field_of_view;
+  float theta_cone;//
+  float acquisition_field_of_view;//
   float z_rot; // table feed per rotation
 
   // Not handled yet, but may need to be in the future

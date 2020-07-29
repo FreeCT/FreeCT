@@ -70,18 +70,21 @@ void parse_config(std::string config_file, ReconConfig& rp){
 void configure_ct_geometry(std::shared_ptr<fct::RawDataSet> ds,CTGeometry& cg){
   // Physical geometry of the scanner (cannot change from scan to scan)
   
-  cg.total_number_of_projections = ds->getTotalNumProjections();
-  cg.distance_source_to_isocenter = ds->getDistSourceToIsocenter(); 
-  cg.distance_source_to_detector  = ds->getDistSourceToDetector();
-  cg.detector_central_col         = ds->getDetectorCentralChannel();
-  cg.detector_central_row         = ds->getDetectorCentralRow();
+  cg.total_number_of_projections  = ds->getTotalNumProjections();
+  cg.projections_per_rotation     = ds->getProjectionsPerRotation();
+  cg.detector_pixel_size_col     = ds->getDetectorTransverseSpacing();
+  cg.detector_pixel_size_row     = ds->getDetectorAxialSpacing();
   cg.num_detector_cols            = ds->getDetectorChannels();
   cg.num_detector_rows            = ds->getDetectorRows();
+  cg.detector_central_col         = ds->getDetectorCentralChannel();
+  cg.detector_central_row         = ds->getDetectorCentralRow();
+  cg.distance_source_to_isocenter = ds->getDistSourceToIsocenter(); 
+  cg.distance_source_to_detector  = ds->getDistSourceToDetector();
     
-  cg.projections_per_rotation     = ds->getProjectionsPerRotation();
   cg.collimated_slice_width       = ds->getDistSourceToIsocenter()*(ds->getDetectorAxialSpacing()/ds->getDistSourceToDetector());
   
-  cg.z_rot = ds->getTablePosition(cg.projections_per_rotation-1) - ds->getTablePosition(0);
+  //cg.z_rot = ds->getTablePosition(cg.projections_per_rotation-1) - ds->getTablePosition(0);
+  cg.z_rot = fabs(ds->getTablePosition(cg.projections_per_rotation) - ds->getTablePosition(0));
   
   float detector_cone_offset = ((float)(cg.num_detector_rows - 1))/2.0f; // May not be 100% accurate if central detector is not necessarily in the middle
   cg.theta_cone=2.0f*atan(detector_cone_offset * cg.collimated_slice_width/cg.distance_source_to_isocenter);

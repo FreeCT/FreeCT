@@ -3,6 +3,8 @@
 
 #include <fct/FreeCTRead.h>
 #include <parse_config.h>
+#include <util.h>
+#include <rebin.h>
 #include <boost/filesystem.hpp>
 
 #include <fstream>
@@ -17,6 +19,7 @@ int main(int argc, char ** argv){
 
   std::string recon_config_filepath = "";
   bool flag_verbose = false;
+  bool flag_testing = false;
   int cuda_device = 0;
   
   // Parse our command line inputs
@@ -33,6 +36,8 @@ int main(int argc, char ** argv){
     
     if (arg=="-v")
       flag_verbose = true;
+    else if (arg=="-t")
+      flag_testing = true;
     else if (arg=="-d")
       cuda_device = std::stoi(argv[++i]);
     else{
@@ -44,21 +49,13 @@ int main(int argc, char ** argv){
   recon_config_filepath = argv[argc-1];
   
   // Configure CUDA device
-  int device_count=0;
-  cudaGetDeviceCount(&device_count);
-  if (device_count < 1){
-    std::cout << "ERROR: No CUDA devices detected." << std::endl;
+  bool was_successful = validate_selected_device(cuda_device);
+  if (!was_successful){
     exit(1);
   }
-  if (cuda_device > device_count - 1){
-    std::cout << "ERROR: Invalid CUDA device requested!" << std::endl;
-    std::cout << "       Requested value (" << cuda_device << ") must be less than the number of devices (" << device_count  << ")" << std::endl;
-    exit(1);
-  }
-
+  
   // Get our reconstruction parameters from the configuration file
   ReconConfig rp;
-
   if (!boost::filesystem::exists(recon_config_filepath)){
     std::cout << "ERROR: Recon configuration filepath does not exist! (" << recon_config_filepath << ")" << std::endl;
     exit(1);
@@ -86,8 +83,20 @@ int main(int argc, char ** argv){
     ds->copyProjection(projection_idx,&tmp_raw[data_offset]);
   }
 
-  std::ofstream ofs("/home/john/Desktop/raw_debug.dat",std::ios::binary);
-  ofs.write((char*)tmp_raw,cg.num_detector_cols * cg.num_detector_rows * cg.total_number_of_projections*sizeof(float));
+  if (flag_testing){
+    std::ofstream ofs("/home/john/Desktop/raw_debug.dat",std::ios::binary);
+    ofs.write((char*)tmp_raw,cg.num_detector_cols * cg.num_detector_rows * cg.total_number_of_projections*sizeof(float));
+  }
+
+  // Rebin and filter the data
+  std::shared_ptr<float> DATAPOINTER_rebin(new float[cg.num_detector_rows*cg.num_detector_cols*cg.total_number_of_projections]);
+  rebin(DATAPOINTER_rebin,DATAPOINTER_raw,cg,rp);
+
+  float * tmp_rebin = DATAPOINTER_rebin.get();
+  if (flag_testing){
+    std::ofstream ofs("/home/john/Desktop/rebin_debug.dat",std::ios::binary);
+    ofs.write((char*)tmp_rebin,cg.num_detector_cols * cg.num_detector_rows * cg.total_number_of_projections*sizeof(float));
+  }
   
   return 0;
 }
