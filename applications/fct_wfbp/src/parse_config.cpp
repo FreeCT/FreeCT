@@ -46,7 +46,8 @@ void parse_config(std::string config_file, ReconConfig& rp){
   parse_item(start_pos,float);
   parse_item(end_pos,float);
   parse_item(recon_fov,double);
-  parse_item(slice_thickness,double);
+  parse_item(slice_thickness,float);
+  parse_item(slice_pitch,float);
   parse_item(nx,size_t);
   parse_item(ny,size_t);
   parse_item(recon_kernel,int);
@@ -55,16 +56,9 @@ void parse_config(std::string config_file, ReconConfig& rp){
   parse_item(tube_angle_offset,float);
   parse_item(adaptive_filtration_s,float);
     
-  // Deprecated
-  // ========================================
-  // parse_item(dx,double);
-  // parse_item(dy,double);
-  // parse_item(dz,double);
-  // parse_item(fov_radius,double);
-  // parse_item(center_voxel_x,double);
-  // parse_item(center_voxel_y,double);
-  // parse_item(center_voxel_z,double);
-  // parse_item(nz,size_t);
+  if (rp.slice_pitch==0)
+    rp.slice_pitch = rp.slice_thickness;
+  
 }
 
 void configure_ct_geometry(std::shared_ptr<fct::RawDataSet> ds,CTGeometry& cg){

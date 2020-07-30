@@ -35,6 +35,7 @@ struct ReconConfig{
   float end_pos;
   float recon_fov;
   float slice_thickness;
+  float slice_pitch;
   size_t nx;
   size_t ny;
   int recon_kernel;
