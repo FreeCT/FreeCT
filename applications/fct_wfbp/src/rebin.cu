@@ -2,10 +2,12 @@
 #include <iostream>
 #include <util.h>
 
-#include <gpu_error_check.h>
 #include <cufft.h>
+#include <gpu_error_check.h>
 
+#include <fstream>
 #include <chrono>
+#include <vector>
 
 // @JOHN: Don't sweat seconds: focus on clean code and algorithmic improvements
 
@@ -32,17 +34,22 @@ __global__ void rebin_kernel(float * output){
   int out_idx = channel_idx + proj_idx*d_cg.num_detector_cols;
   output[out_idx] = tex2D(tex_row_sheet, beta_idx + 0.5f, alpha_idx + 0.5);
   //output[out_idx] = d_cg.detector_pixel_size_col; //tex2D(tex_row_sheet, channel_idx + 0.5f, proj_idx + 0.5);
-
 }
 
-__global__ void multiply_filter(cufftComplex * row_sheet_fourier_domain, float * filter){
-
+__global__ void multiply_filter(cufftComplex * row_sheet_fourier_domain, cufftComplex * filter){
   int channel_idx = threadIdx.x + blockDim.x*blockIdx.x;
   int proj_idx    = threadIdx.y + blockDim.y*blockIdx.y;
 
   int idx = channel_idx + proj_idx * d_cg.num_detector_cols;
-  row_sheet_fourier_domain[idx] = filter[channel_idx] * row_sheet_fourier_domain[channel_idx];
+  //row_sheet_fourier_domain[idx] = filter[channel_idx] * row_sheet_fourier_domain[channel_idx];
 
+  float a = filter[channel_idx].x;
+  float b = filter[channel_idx].y;
+  float c = row_sheet_fourier_domain[channel_idx].x;
+  float d = row_sheet_fourier_domain[channel_idx].y;
+  
+  row_sheet_fourier_domain[idx].x = a;//a*c - b*d;
+  row_sheet_fourier_domain[idx].y = b;//a*d + b*c;
 }
 
 inline void configure_texture(){
@@ -54,7 +61,7 @@ inline void configure_texture(){
 }
 
 // HOST CODE
-void generate_filter(float * f_array,CTGeometry cg, float c = 1.0f, float a = 1.0f);
+cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 1.0f);
   
 void rebin(std::shared_ptr<float> output, std::shared_ptr<float> input, CTGeometry cg, ReconConfig rp){
 
@@ -62,6 +69,7 @@ void rebin(std::shared_ptr<float> output, std::shared_ptr<float> input, CTGeomet
   // Additionally, flip the channel direction and row direction
   // since Chen et al 2015 defines the geometry to be the opposite
   // of how Stierstorfer et al 2004 defines it.
+  // (May be worth it to eventually do this on the GPU...)
   Timer t;
   t.tic();
   std::cout << "Reshaping raw data array..." << std::endl;
@@ -100,16 +108,43 @@ void rebin(std::shared_ptr<float> output, std::shared_ptr<float> input, CTGeomet
 
   configure_texture();
 
-  // Create our filter and send to GPU
-  float * h_filter = new float[]
+  // Create our filter (on device, ready to be multiplied against our data)  
+  cufftComplex * d_filter = generate_filter(cg);
+
+  // Create our FFT plans
+  cufftResult cufft_status;
+  cufftHandle plan_forward;
+  cufftHandle plan_reverse;
   
-  
+  int RANK  = 1;
+  int NX    = cg.num_detector_cols;
+  int BATCH = cg.total_number_of_projections;
+
+  cufft_status = cufftPlanMany(&plan_forward,RANK,&NX,
+                               NULL,1,0,
+                               NULL,1,0,
+                               CUFFT_R2C,BATCH);
+  cufftErrChk(cufft_status);
+
+  cufft_status = cufftPlanMany(&plan_reverse,RANK,&NX,
+                               NULL,1,0,
+                               NULL,1,0,
+                               CUFFT_C2R,BATCH);
+  cufftErrChk(cufft_status);
+
+  // Allocate FFT result data
+  cufftComplex * d_sheet_data_fourier_domain;
+  gpu_status = cudaMalloc(&d_sheet_data_fourier_domain,cg.num_detector_cols*cg.total_number_of_projections*sizeof(cufftComplex));
+  gpuErrChk(gpu_status);
+    
   // Main rebin/filter loop
   float * rebinned_data = output.get();
   
   GPUTimer gt;
   for (int i=0; i<cg.num_detector_rows; i++){
-    gt.tic();    
+    gt.tic();
+
+    // Copy raw projection data to texture memory
     size_t offset = i*cg.num_detector_cols*cg.total_number_of_projections;
     size_t sheet_size_bytes =  cg.num_detector_cols*cg.total_number_of_projections * sizeof(float);
     gpu_status = cudaMemcpyToArray(d_row_sheet_raw, 0, 0, &raw_reshaped[offset], sheet_size_bytes, cudaMemcpyHostToDevice);
@@ -118,71 +153,107 @@ void rebin(std::shared_ptr<float> output, std::shared_ptr<float> input, CTGeomet
     gpu_status = cudaBindTextureToArray(tex_row_sheet,d_row_sheet_raw,channelDesc);
     gpuErrChk(gpu_status);
 
+    // Run rebinning kernel
     dim3 rebin_threads(8,8);
     dim3 rebin_blocks(cg.num_detector_cols/rebin_threads.x,cg.total_number_of_projections/rebin_threads.y);
     rebin_kernel<<<rebin_blocks,rebin_threads>>>(d_row_sheet_rebin);
     gpuErrChk(cudaPeekAtLastError());
 
-    // Configure FFT plan and run filtering
-    cufftHandle plan;
-    cufftComplex * d_sheet_data_fourier_domain;
-
-    int RANK = 1;
-    int NX = cg.num_detector_cols;
-    int BATCH = cg.total_number_of_projections;
-    
-    cudaMalloc(&d_sheet_data_fourier_domain,cg.num_detector_cols*cg.total_number_of_projections*sizeof(cufftComplex));
-
-    cufftPlanMany(&plan,RANK,&NX,
-                  NULL,1,0,
-                  NULL,1,0,
-                  CUFFT_R2C,BATCH);
-    cufftExecR2C(plan,d_row_sheet_rebin,d_sheet_data_fourier_domain);
+    // Filter the rebinned data
+    cufft_status = cufftExecR2C(plan_forward,(cufftReal*)d_row_sheet_rebin,d_sheet_data_fourier_domain);
+    cufftErrChk(cufft_status);
+    cudaDeviceSynchronize();
 
     dim3 filter_threads(cg.num_detector_cols,1);
-    dim3 filter_blocks(1,cg.total_number_of_projections/rebin_threads.y);
-    multiply_filter<<<filter_blocks,filter_threads>>>(d_sheet_data_fourier_domain,);
+    dim3 filter_blocks(1,cg.total_number_of_projections/filter_threads.y);
+    multiply_filter<<<filter_blocks,filter_threads>>>(d_sheet_data_fourier_domain,d_filter);
+    gpuErrChk(cudaPeekAtLastError());
+    cudaDeviceSynchronize();
+
+    cufft_status = cufftExecC2R(plan_reverse,d_sheet_data_fourier_domain,(cufftReal*)d_row_sheet_rebin);
+    cufftErrChk(cufft_status);
+    cudaDeviceSynchronize();
     
     // Copy data back from GPU
-    cudaMemcpy(&rebinned_data[offset],d_row_sheet_rebin,sheet_size_bytes,cudaMemcpyDeviceToHost);
-
-
+    gpu_status = cudaMemcpy(&rebinned_data[offset],d_row_sheet_rebin,sheet_size_bytes,cudaMemcpyDeviceToHost);
+    gpuErrChk(gpu_status);
       
     gt.toc();
-    
   }
+
+  cufftDestroy(plan_forward);
+  cufftDestroy(plan_reverse);
   
+  cudaFree(d_sheet_data_fourier_domain);
+  cudaFree(d_filter);
   cudaFreeArray(d_row_sheet_raw);
   cudaFree(d_row_sheet_rebin);
 }
 
-void generate_filter(float * f_array, CTGeometry cg, float c, float a){
+cufftComplex * generate_filter(CTGeometry cg, float c, float a){
   // Create a spatial domain ramp filter.  Eventually we'll expost c and a
-  // so users can customize filter response for smoother/sharper reconstructions
-  
-  //float * h_filter=(float*)calloc(2*cg.n_channels_oversampled,sizeof(float));
+  // so users can customize filter response for smoother/sharper reconstructions  
   //float ds = mr->cg.r_f*sin(mr->cg.fan_angle_increment/2.0f); // This is at isocenter.  Is that correct?
 
+  std::cout << "Generating filter" << std::endl;
+
+  // Allocate the host filter
+  std::shared_ptr<float> h_filter(new float[cg.num_detector_cols]);
+
+  // Calculate the filter
   float pi_f = 3.141592653589f;
   float ds = cg.detector_pixel_size_col;
   
-  //float ds = mr->cg.src_to_det*sin(mr->cg.fan_angle_increment/2.0f); // I think it should be at the detector
-
-  auto r = [](float t)-> float{
+  auto r = [](float t)->float{
              float v = sin(t)/t + (cos(t)-1.0f)/(t*t);
              if (t==0)
                v=0.5;
              return v;
            };
+
+  int N = cg.num_detector_cols;
   
-  int test = (int)cg.num_detector_cols;
-  
-  for (int i = -test;i < test;i++){
-    
-    f_array[i+cg.num_detector_cols] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
+  for (int i=-N/2;i<N/2;i++){    
+    h_filter.get()[i+N/2] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
                                                          (((1.0f-a)/2.0f)*r(pi_f*c*i + pi_f)) +
                                                          (((1.0f -a)/2.0f)*r(pi_f*c*i-pi_f)));
-    
+  }
+
+  // Apply the "fftshift" operation
+  for (int i=0; i<N/2;i++){
+    float tmp = h_filter.get()[i];   
+    h_filter.get()[i]     = h_filter.get()[i+N/2];
+    h_filter.get()[i+N/2] = tmp;
   }
   
+  // Send to device
+  cudaError_t cuda_status;
+  cufftResult cufft_status;
+  
+  float * d_filter;
+  cuda_status = cudaMalloc(&d_filter,cg.num_detector_cols*sizeof(float));
+  gpuErrChk(cuda_status);
+
+  cuda_status = cudaMemcpy(d_filter,h_filter.get(),cg.num_detector_cols*sizeof(float),cudaMemcpyHostToDevice);
+  gpuErrChk(cuda_status);
+
+  // Take the FFT to get it into the Fourier domain, and return pointer to the complex FFT array
+  cufftHandle plan;
+  cufft_status = cufftPlan1d(&plan,cg.num_detector_cols,CUFFT_R2C,1);
+  cufftErrChk(cufft_status);
+    
+  cufftComplex * d_filter_final;
+  cuda_status = cudaMalloc(&d_filter_final,cg.num_detector_cols*sizeof(cufftComplex));
+  gpuErrChk(cuda_status);
+  
+  cufft_status = cufftExecR2C(plan,(cufftReal*)d_filter,d_filter_final);
+  cufftErrChk(cufft_status);
+
+  cudaFree(d_filter);
+  cufftDestroy(plan);
+
+  return d_filter_final;
+  
 }
+
+
