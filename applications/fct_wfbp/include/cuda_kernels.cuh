@@ -76,18 +76,28 @@ __global__ void backproject_kernel(float * d_projection_data,
   int y_idx = threadIdx.y + blockDim.y*blockIdx.y;
   int slice_idx = threadIdx.z + blockDim.z*blockIdx.z;
 
-  float x_loc = (x_idx - 0.5f*(d_rp.nx -1.0f))*d_rp.recon_fov/d_rp.nx + d_rp.x_origin;
-  float y_loc = (y_idx - 0.5f*(d_rp.ny -1.0f))*d_rp.recon_fov/d_rp.ny + d_rp.y_origin;
-  float z_loc = d_slice_locations[slice_idx]; // GLOBAL READ
+  float x_loc = (x_idx - 0.5f*(d_rp.nx -1.0f))*d_rp.recon_fov/d_rp.nx + d_rp.x_origin; // Could be moved to a memory-operation (i.e. reduce FMA)
+  float y_loc = (y_idx - 0.5f*(d_rp.ny -1.0f))*d_rp.recon_fov/d_rp.ny + d_rp.y_origin; // Could be moved to a memory-operation (i.e. reduce FMA)
+  float z_loc = d_slice_locations[slice_idx]; // GLOBAL READ                           
 
+  // Precalculate a "constants" structure to reduce the number of multiplications required in kernel
+  // 0.5*acquisition_fov = half_acquisition_fov;
+  // 0.5*projections_per_rotation = projections_per_half_turn;
+  // floorf(d_cg.total_number_of_projections/projections_per_half_turn) = n_half_turns
+  // pow(distance_source_to_isocenter,2.0) = distance_source_to_isocenter_squared
+  // z_rot/(2*pi) = z_rot_over_2_pi
+  // 1/distance_source_to_detector = reciprocal_distance_source_to_detector
+  // tanf(0.5*theta_cone) = tanf_theta_cone
+  // d_cg.distance_source_to_detector/(d_cg.distance_source_to_isocenter*d_cg.detector_pixel_size_col) =  pixel_scale 
+  
   // If outside of the acquisition FOV, bail out
-  if (x_loc*x_loc + y_loc*y_loc > (0.5f*d_rp.recon_fov)*(0.5f*d_cg.acquisition_field_of_view))
+  if (x_loc*x_loc + y_loc*y_loc > (0.5f*d_cg.acquisition_field_of_view)*(0.5f*d_cg.acquisition_field_of_view))
     return;
 
-  int projections_per_half_turn = d_cg.projections_per_rotation/2;
+  int projections_per_half_turn = (d_cg.projections_per_rotation/2);
   int n_half_turns = floorf(d_cg.total_number_of_projections/projections_per_half_turn);
   
-  for (int theta_tilde_idx = 0; theta_tilde_idx < d_cg.projections_per_rotation/2; theta_tilde_idx++){
+  for (int theta_tilde_idx = 0; theta_tilde_idx < projections_per_half_turn; theta_tilde_idx++){
     float backprojected_value  = 0.0f;
     float normalization_factor = 0.0f;
   
