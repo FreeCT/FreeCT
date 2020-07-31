@@ -65,6 +65,8 @@ namespace fct{
     std::cout << "ReconstructionMachine: Running the reconstruction (INCOMPLETE!)..." << std::endl;
     AllocateKeyArrays();
     RebinAndFilter();
+    Backproject();
+    ApplyFinalSliceThicknessing();
   }
 
   void ReconstructionMachine::AllocateKeyArrays(){
@@ -249,6 +251,7 @@ namespace fct{
       dim3 reshape_threads(m_cg.num_detector_cols,1);
       dim3 reshape_blocks(1,m_cg.total_number_of_projections/filter_threads.y);
       reshape_rebin_into_final_array<<<reshape_blocks,reshape_threads>>>(m_d_filtered_projection_data,d_row_sheet_rebin,i);
+      gpuErrChk(cudaPeekAtLastError());
     }
     gt.toc();
 
@@ -266,7 +269,78 @@ namespace fct{
   }
   
   void ReconstructionMachine::Backproject(){
-    m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_slice_locations_requested_slice_width.size()]);
+
+    cudaError_t cuda_status;
+
+    // Copy table positions and tube angles onto the gpu
+    float * d_tube_angles;
+    cuda_status = cudaMalloc(&d_tube_angles,m_tube_angles.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+
+    cudaDeviceSynchronize();
+
+    float * d_table_positions;
+    cuda_status = cudaMalloc(&d_table_positions,m_table_positions.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+
+    float * d_slice_locations_collimated_slice_width;
+    cuda_status = cudaMalloc(&d_slice_locations_collimated_slice_width,m_slice_locations_collimated_slice_width.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+      
+    // Allocate GPU memory for the reconstructed slices (at native slice thickness)
+    int m_num_slices_native = m_slice_locations_collimated_slice_width.size();
+    cuda_status = cudaMalloc(&m_d_reconstruction_collimated_slice_width, m_rp.nx * m_rp.ny * m_num_slices_native * sizeof(float));
+    gpuErrChk(cuda_status);
+    
+    // All of our projection data is already on GPU and stored in m_d_filtered_projection_data from rebinning/filtering
+    dim3 backproject_threads(32,32,1);
+    dim3 backproject_blocks(m_rp.nx / backproject_threads.x,
+                            m_rp.ny / backproject_threads.y,
+                            m_num_slices_native / backproject_threads.z);
+    backproject_kernel<<<backproject_blocks,backproject_threads>>>(m_d_filtered_projection_data,
+                                                                   m_d_reconstruction_collimated_slice_width,
+                                                                   d_tube_angles,
+                                                                   d_table_positions,
+                                                                   d_slice_locations_collimated_slice_width);
+    cudaDeviceSynchronize();
+    gpuErrChk(cudaPeekAtLastError());
+    
+    // Debug
+    if (true){
+      m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_num_slices_native]);
+
+      if (m_reconstructed_data.get()==NULL){
+        std::cout << "COULD NOT ALLOCATE RECONSTRUCTION DATA MEMORY" << std::endl;
+        exit(1);
+      }
+
+      //std::cout << m_rp.nx << std::endl;
+      //std::cout << m_rp.ny << std::endl;
+      //std::cout << m_num_slices_native << std::endl;
+      //std::cout << m_reconstructed_data.get() << std::endl;
+      //std::cout << m_d_reconstruction_collimated_slice_width << std::endl;
+      //std::cout << m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float) << std::endl;
+      
+      cuda_status = cudaMemcpy((void*)(m_reconstructed_data.get()),
+                               (void*)m_d_reconstruction_collimated_slice_width,
+                               m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float),cudaMemcpyDeviceToHost);
+      gpuErrChk(cuda_status);
+    
+      std::ofstream fid("/home/john/Desktop/recon_native_debug.dat",std::ios::binary);
+      fid.write((char*)m_reconstructed_data.get(),m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float));
+    }
+
+    // Free any data that is no longer needed
+    cudaFree(m_d_filtered_projection_data);
+    cudaFree(d_table_positions);
+    cudaFree(d_tube_angles);
+  }
+
+  void ReconstructionMachine::ApplyFinalSliceThicknessing(){
+
+    //// Copy data back to host
+    //m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_slice_locations_requested_slice_width.size()]);
+    //cudaMemcpy(m_reconstructed_data.get(),d_reconstructed_slices_native_thickness)
   }
 
   void ReconstructionMachine::PrintCTGeometry(){

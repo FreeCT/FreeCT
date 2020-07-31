@@ -49,4 +49,23 @@ __global__ void reshape_rebin_into_final_array(float * d_final_projection_array,
   d_final_projection_array[out_idx] = d_filtered_row_sheet[in_idx];
 }
 
+__global__ void backproject_kernel(float * d_projection_data,
+                                   float * d_reconstruction_data,
+                                   float * d_tube_angles,
+                                   float * d_table_positions,
+                                   float * d_slice_locations){
+
+  int x_idx = threadIdx.x + blockDim.x*blockIdx.x;
+  int y_idx = threadIdx.y + blockDim.y*blockIdx.y;
+  int slice_idx = threadIdx.z + blockDim.z*blockIdx.z;
+
+  // Do backprojections
+
+  // Done
+  
+  int out_idx = x_idx  + (y_idx * d_rp.nx) + (slice_idx * d_rp.nx * d_rp.ny);
+  d_reconstruction_data[out_idx] = 0.0f;
+  
+}
+
 #endif // __CUDA_KERNELS_H__
