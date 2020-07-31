@@ -137,6 +137,7 @@ namespace fct{
         for (int k=0; k<m_cg.num_detector_cols;k++){
           int input_idx = k + j*m_cg.num_detector_cols + i*m_cg.num_detector_cols*m_cg.num_detector_rows;
           int output_idx = (m_cg.num_detector_cols - 1 - k) + i*m_cg.num_detector_cols + (m_cg.num_detector_rows - 1 - j)*m_cg.num_detector_cols*m_cg.total_number_of_projections;
+          //int output_idx = (m_cg.num_detector_cols - 1 - k) + i*m_cg.num_detector_cols + (m_cg.num_detector_rows - 1 - j)*m_cg.num_detector_cols*m_cg.total_number_of_projections;
           raw_reshaped[output_idx] = raw[input_idx];
         }
       }
@@ -270,29 +271,42 @@ namespace fct{
   
   void ReconstructionMachine::Backproject(){
 
+    std::cout << "Running backprojection for " << m_slice_locations_collimated_slice_width.size() << " slices ..." << std::endl;
+
     cudaError_t cuda_status;
 
     // Copy table positions and tube angles onto the gpu
     float * d_tube_angles;
     cuda_status = cudaMalloc(&d_tube_angles,m_tube_angles.size()*sizeof(float));
     gpuErrChk(cuda_status);
-
-    cudaDeviceSynchronize();
-
+    cuda_status = cudaMemcpy(d_tube_angles,&m_tube_angles[0],m_tube_angles.size()*sizeof(float),cudaMemcpyHostToDevice);
+    gpuErrChk(cuda_status);
+    
     float * d_table_positions;
     cuda_status = cudaMalloc(&d_table_positions,m_table_positions.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+    cuda_status = cudaMemcpy(d_table_positions,&m_table_positions[0],m_table_positions.size()*sizeof(float),cudaMemcpyHostToDevice);
     gpuErrChk(cuda_status);
 
     float * d_slice_locations_collimated_slice_width;
     cuda_status = cudaMalloc(&d_slice_locations_collimated_slice_width,m_slice_locations_collimated_slice_width.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+    cuda_status = cudaMemcpy(d_slice_locations_collimated_slice_width,
+                             &m_slice_locations_collimated_slice_width[0],
+                             m_slice_locations_collimated_slice_width.size()*sizeof(float),
+                             cudaMemcpyHostToDevice);
     gpuErrChk(cuda_status);
       
     // Allocate GPU memory for the reconstructed slices (at native slice thickness)
     int m_num_slices_native = m_slice_locations_collimated_slice_width.size();
     cuda_status = cudaMalloc(&m_d_reconstruction_collimated_slice_width, m_rp.nx * m_rp.ny * m_num_slices_native * sizeof(float));
     gpuErrChk(cuda_status);
+    cuda_status = cudaMemset(m_d_reconstruction_collimated_slice_width,0,m_rp.nx * m_rp.ny * m_num_slices_native * sizeof(float));
+    gpuErrChk(cuda_status);
     
     // All of our projection data is already on GPU and stored in m_d_filtered_projection_data from rebinning/filtering
+    GPUTimer gt;
+    gt.tic();
     dim3 backproject_threads(32,32,1);
     dim3 backproject_blocks(m_rp.nx / backproject_threads.x,
                             m_rp.ny / backproject_threads.y,
@@ -304,6 +318,7 @@ namespace fct{
                                                                    d_slice_locations_collimated_slice_width);
     cudaDeviceSynchronize();
     gpuErrChk(cudaPeekAtLastError());
+    gt.toc();
     
     // Debug
     if (true){
@@ -314,13 +329,6 @@ namespace fct{
         exit(1);
       }
 
-      //std::cout << m_rp.nx << std::endl;
-      //std::cout << m_rp.ny << std::endl;
-      //std::cout << m_num_slices_native << std::endl;
-      //std::cout << m_reconstructed_data.get() << std::endl;
-      //std::cout << m_d_reconstruction_collimated_slice_width << std::endl;
-      //std::cout << m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float) << std::endl;
-      
       cuda_status = cudaMemcpy((void*)(m_reconstructed_data.get()),
                                (void*)m_d_reconstruction_collimated_slice_width,
                                m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float),cudaMemcpyDeviceToHost);

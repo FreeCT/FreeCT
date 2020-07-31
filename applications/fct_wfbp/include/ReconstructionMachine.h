@@ -16,7 +16,7 @@ namespace fct{
     void LoadReconConfiguration(std::string filepath);
     void LoadRawData();
     void ConfigureCTGeometry();
-    void RunReconstruction(); 
+    void RunReconstruction();
     void PrintCTGeometry();
 
   private:
