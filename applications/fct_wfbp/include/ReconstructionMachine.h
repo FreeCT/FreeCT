@@ -28,6 +28,7 @@ namespace fct{
 
     ReconConfig m_rp;
     CTGeometry m_cg;
+    GPUPrecompute m_gpu_precompute;
 
     // Key host pointers (data is on HOST)
     std::shared_ptr<fct::RawDataSet> m_org_data_set;

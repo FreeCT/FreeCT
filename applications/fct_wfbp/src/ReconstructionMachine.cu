@@ -59,6 +59,8 @@ namespace fct{
     m_cg.theta_cone=2.0f*atan(detector_cone_offset * m_cg.collimated_slice_width/m_cg.distance_source_to_isocenter);
 
     m_cg.acquisition_field_of_view = 2.0f * m_cg.distance_source_to_isocenter*sin((float(m_cg.num_detector_cols-1.0f)/2.0f) * m_org_data_set->getDetectorTransverseSpacing() * (1.0f/m_cg.distance_source_to_detector));
+
+    m_gpu_precompute.InitFromCTGeometry(m_cg);
   }
   
   void ReconstructionMachine::RunReconstruction(){
@@ -167,6 +169,9 @@ namespace fct{
     gpuErrChk(gpu_status);
   
     gpu_status = cudaMemcpyToSymbol(d_rp,&m_rp,sizeof(struct ReconConfig),0,cudaMemcpyHostToDevice);
+    gpuErrChk(gpu_status);
+
+    gpu_status = cudaMemcpyToSymbol(d_gpu_precompute,&m_gpu_precompute,sizeof(struct GPUPrecompute),0,cudaMemcpyHostToDevice);
     gpuErrChk(gpu_status);
 
     // Allocate the array we'll reshape our final, rebinned, filtered data
@@ -311,7 +316,10 @@ namespace fct{
     dim3 backproject_blocks(m_rp.nx / backproject_threads.x,
                             m_rp.ny / backproject_threads.y,
                             m_num_slices_native / backproject_threads.z);
-    backproject_kernel<<<backproject_blocks,backproject_threads>>>(m_d_filtered_projection_data,
+
+    size_t shared_mem_size = m_rp.nx*sizeof(float) + m_rp.ny*sizeof(float);
+    
+    backproject_kernel<<<backproject_blocks,backproject_threads,shared_mem_size>>>(m_d_filtered_projection_data,
                                                                    m_d_reconstruction_collimated_slice_width,
                                                                    d_tube_angles,
                                                                    d_table_positions,
