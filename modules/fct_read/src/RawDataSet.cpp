@@ -73,7 +73,7 @@ namespace fct{
     ye << YAML::Key << "recon_kernel" << YAML::Value << 3;
     ye << YAML::Key << "x_origin" << YAML::Value << 0.0f;
     ye << YAML::Key << "y_origin" << YAML::Value << 0.0f;
-    ye << YAML::Key << "tube_start_angle" << YAML::Value << 0.0f;
+    ye << YAML::Key << "tube_angle_offset" << YAML::Value << 0.0f;
     ye << YAML::Key << "adaptive_filtration_s" << YAML::Value << 0.2f;
     
     ye << YAML::EndMap;
