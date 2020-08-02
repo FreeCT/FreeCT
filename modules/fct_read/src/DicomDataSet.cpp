@@ -3,8 +3,53 @@
 
 #include <boost/filesystem.hpp>
 
+#include <thread>
+#include <numeric>
 #include <memory>
 #include <iostream>
+#include <atomic>
+
+namespace{
+  template <typename F>
+  void forEachVectorElem(size_t vecSize, F func, int numThreads = -1){
+
+    if (numThreads < 0)
+      numThreads = std::thread::hardware_concurrency();
+    
+    auto processElem = [&func](const std::vector<int>& idxs){
+                         for (size_t i = 0; i < idxs.size(); ++i){
+                           func(idxs[i]);
+                         }
+                       };
+
+    if (numThreads == 1){
+      std::vector<int> zSlices (vecSize);
+      std::iota(zSlices.begin(), zSlices.end(), 0);
+      processElem(zSlices);
+    }
+    else{
+      
+      std::vector<std::thread> threads (numThreads);
+      for (size_t i = 0; i < threads.size(); ++i){
+        //std::cout << "Configuring thread " << i << std::endl;
+        std::vector<int> idxs;
+        for (size_t task_idx=0;task_idx<vecSize;task_idx++){
+          if (task_idx%numThreads==i){
+            idxs.push_back(task_idx);
+            //std::cout << task_idx << " " ;
+          }
+        }
+        //std::cout << std::endl;
+
+        threads[i] = std::thread(processElem, idxs);
+      }
+      for (size_t i = 0; i < threads.size(); ++i){
+        threads[i].join();
+      }
+    }
+  }
+}
+
 
 namespace fct{
   
@@ -279,26 +324,51 @@ namespace fct{
     // Read the raw data file(s), again using runtime polymorphism
     // so that in any subsequent
     printf("Reading %05zu/%05zu",(size_t)0,m_file_list.size());
-    int count  = 0;
-    for (size_t i=0;i<m_file_list.size();i++){
-
-      if (i%100==0){
-        printf("\b\b\b\b\b\b\b\b\b\b\b");
-        printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
-      }
-      
-      std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
-      bool success = rdf->readFromFile(m_file_list[i]);
-      if (success){
-        m_data[i] = std::move(rdf);
-        m_is_loaded[i] = true;
-      }
-
-      //m_data.push_back(std::move(rdf));
-     
-      count++;
-    }
+    
+    std::atomic<int> count(0);
+    
+    auto load_file = [this,&count](int file_idx){
+                       std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
+                       
+                       bool success = rdf->readFromFile(m_file_list[file_idx]);
+                       if (success){
+                         m_data[file_idx] = std::move(rdf);
+                         m_is_loaded[file_idx] = true;
+                       }
+    
+                       count++;
+                       
+                       if (count%100==0){
+                         printf("\b\b\b\b\b\b\b\b\b\b\b");
+                         printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
+                       }
+                     
+                     };
+    forEachVectorElem(m_file_list.size(),load_file);
     std::cout << std::endl;
+
+    //int count = 0;
+    //for (size_t i=0;i<m_file_list.size();i++){
+    //
+    //  if (i%100==0){
+    //    printf("\b\b\b\b\b\b\b\b\b\b\b");
+    //    printf("%05zu/%05zu",(size_t)count,m_file_list.size()); fflush(stdout);
+    //  }
+    //  
+    //  std::unique_ptr<fct::RawDataFrame> rdf = std::make_unique<fct::DicomFrame>();
+    //
+    //  bool success = rdf->readFromFile(m_file_list[i]);
+    //  if (success){
+    //    m_data[i] = std::move(rdf);
+    //    m_is_loaded[i] = true;
+    //  }
+    //  count++;
+    //
+    //  //m_data.push_back(std::move(rdf));
+    // 
+    //  
+    //}
+    //std::cout << std::endl;
 
     // Finally get the total number of projections in the dataset
     m_total_num_projections = m_data.size();

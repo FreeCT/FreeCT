@@ -60,6 +60,8 @@ namespace fct{
 
     m_cg.acquisition_field_of_view = 2.0f * m_cg.distance_source_to_isocenter*sin((float(m_cg.num_detector_cols-1.0f)/2.0f) * m_org_data_set->getDetectorTransverseSpacing() * (1.0f/m_cg.distance_source_to_detector));
 
+    //m_cg.detector_central_col  = (m_cg.num_detector_cols-1.0f) - m_cg.detector_central_col; 
+
     m_gpu_precompute.InitFromCTGeometry(m_cg);
   }
   
@@ -139,13 +141,15 @@ namespace fct{
         for (int k=0; k<m_cg.num_detector_cols;k++){
           int input_idx = k + j*m_cg.num_detector_cols + i*m_cg.num_detector_cols*m_cg.num_detector_rows;
           int output_idx = (m_cg.num_detector_cols - 1 - k) + i*m_cg.num_detector_cols + (m_cg.num_detector_rows - 1 - j)*m_cg.num_detector_cols*m_cg.total_number_of_projections;
-          //int output_idx = (m_cg.num_detector_cols - 1 - k) + i*m_cg.num_detector_cols + (m_cg.num_detector_rows - 1 - j)*m_cg.num_detector_cols*m_cg.total_number_of_projections;
+          //int output_idx = (m_cg.num_detector_cols - 1 - k) + i*m_cg.num_detector_cols + j*m_cg.num_detector_cols*m_cg.total_number_of_projections;
           raw_reshaped[output_idx] = raw[input_idx];
         }
       }
     }
     std::cout << "Done!" << std::endl;
     t.toc();
+
+    m_cg.detector_central_col = m_cg.detector_central_col;
 
     // Allocate our GPU arrays
     cudaError_t gpu_status;
