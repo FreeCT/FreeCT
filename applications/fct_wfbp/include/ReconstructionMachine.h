@@ -18,6 +18,7 @@ namespace fct{
     void ConfigureCTGeometry();
     void RunReconstruction();
     void PrintCTGeometry();
+    void SaveReconstruction(std::string filepath = "");
 
   private:
 
@@ -25,7 +26,7 @@ namespace fct{
     void RebinAndFilter();
     void Backproject();
     void ApplyFinalSliceThicknessing();
-
+    
     ReconConfig m_rp;
     CTGeometry m_cg;
     GPUPrecompute m_gpu_precompute;
@@ -33,7 +34,7 @@ namespace fct{
     // Key host pointers (data is on HOST)
     std::shared_ptr<fct::RawDataSet> m_org_data_set;
     std::shared_ptr<float> m_raw_data;
-    std::shared_ptr<float> m_reconstructed_data;
+    std::vector<float> m_reconstructed_data;
     
     std::vector<float> m_tube_angles;
     std::vector<float> m_table_positions;
@@ -45,6 +46,7 @@ namespace fct{
     float * m_d_filtered_projection_data;
     float * m_d_reconstruction_collimated_slice_width;
     float * m_d_slice_locations_collimated_slice_width;
+    
   };
 
 }

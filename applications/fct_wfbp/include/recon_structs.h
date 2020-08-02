@@ -59,6 +59,9 @@ struct GPUPrecompute{
   float tanf_theta_cone;
   float pixel_scale;
 
+  int n_slices_native;
+  int n_slices_requested;
+
   void InitFromCTGeometry(CTGeometry cg){
 
     half_acquisition_fov                 = 0.5f*cg.acquisition_field_of_view;
@@ -71,7 +74,6 @@ struct GPUPrecompute{
     recip_distance_source_to_isocenter   = 1.0f/cg.distance_source_to_isocenter;
     tanf_theta_cone                      = tan(cg.theta_cone/2.0f);
     pixel_scale                          = cg.distance_source_to_detector/(cg.distance_source_to_isocenter*cg.detector_pixel_size_col);
-    
   }
   
 };

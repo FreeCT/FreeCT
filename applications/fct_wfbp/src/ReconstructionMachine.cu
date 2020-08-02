@@ -122,6 +122,12 @@ namespace fct{
       m_slice_locations_collimated_slice_width.push_back(m_rp.start_pos);
       m_slice_locations_requested_slice_width.push_back(m_rp.start_pos);      
     }
+
+
+    // This should probably be relocated, but this is a safe spot to do it.  Will revisit later. 
+    m_gpu_precompute.n_slices_native    = m_slice_locations_collimated_slice_width.size();
+    m_gpu_precompute.n_slices_requested = m_slice_locations_requested_slice_width.size();
+
   }
   
   void ReconstructionMachine::RebinAndFilter(){
@@ -297,10 +303,11 @@ namespace fct{
     cuda_status = cudaMemcpy(d_table_positions,&m_table_positions[0],m_table_positions.size()*sizeof(float),cudaMemcpyHostToDevice);
     gpuErrChk(cuda_status);
 
-    float * d_slice_locations_collimated_slice_width;
-    cuda_status = cudaMalloc(&d_slice_locations_collimated_slice_width,m_slice_locations_collimated_slice_width.size()*sizeof(float));
+    //float * d_slice_locations_collimated_slice_width;
+    //m_d_slice_locations_collimated_slice_width;
+    cuda_status = cudaMalloc(&m_d_slice_locations_collimated_slice_width,m_slice_locations_collimated_slice_width.size()*sizeof(float));
     gpuErrChk(cuda_status);
-    cuda_status = cudaMemcpy(d_slice_locations_collimated_slice_width,
+    cuda_status = cudaMemcpy(m_d_slice_locations_collimated_slice_width,
                              &m_slice_locations_collimated_slice_width[0],
                              m_slice_locations_collimated_slice_width.size()*sizeof(float),
                              cudaMemcpyHostToDevice);
@@ -327,28 +334,28 @@ namespace fct{
                                                                    m_d_reconstruction_collimated_slice_width,
                                                                    d_tube_angles,
                                                                    d_table_positions,
-                                                                   d_slice_locations_collimated_slice_width);
+                                                                   m_d_slice_locations_collimated_slice_width);
     cudaDeviceSynchronize();
     gpuErrChk(cudaPeekAtLastError());
     gt.toc();
     
-    // Debug
-    if (true){
-      m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_num_slices_native]);
-
-      if (m_reconstructed_data.get()==NULL){
-        std::cout << "COULD NOT ALLOCATE RECONSTRUCTION DATA MEMORY" << std::endl;
-        exit(1);
-      }
-
-      cuda_status = cudaMemcpy((void*)(m_reconstructed_data.get()),
-                               (void*)m_d_reconstruction_collimated_slice_width,
-                               m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float),cudaMemcpyDeviceToHost);
-      gpuErrChk(cuda_status);
-    
-      std::ofstream fid("/home/john/Desktop/recon_native_debug.dat",std::ios::binary);
-      fid.write((char*)m_reconstructed_data.get(),m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float));
-    }
+    ////// Debug
+    ////if (true){
+    ////  m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_num_slices_native]);
+    ////
+    ////  if (m_reconstructed_data.get()==NULL){
+    ////    std::cout << "COULD NOT ALLOCATE RECONSTRUCTION DATA MEMORY" << std::endl;
+    ////    exit(1);
+    ////  }
+    ////
+    ////  cuda_status = cudaMemcpy((void*)(m_reconstructed_data.get()),
+    ////                           (void*)m_d_reconstruction_collimated_slice_width,
+    ////                           m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float),cudaMemcpyDeviceToHost);
+    ////  gpuErrChk(cuda_status);
+    ////
+    ////  std::ofstream fid("/home/john/Desktop/recon_native_debug.dat",std::ios::binary);
+    ////  fid.write((char*)m_reconstructed_data.get(),m_rp.nx * m_rp.ny * m_num_slices_native*sizeof(float));
+    ////}
 
     // Free any data that is no longer needed
     cudaFree(m_d_filtered_projection_data);
@@ -358,11 +365,74 @@ namespace fct{
 
   void ReconstructionMachine::ApplyFinalSliceThicknessing(){
 
-    //// Copy data back to host
-    //m_reconstructed_data.reset(new float[m_rp.nx * m_rp.ny * m_slice_locations_requested_slice_width.size()]);
-    //cudaMemcpy(m_reconstructed_data.get(),d_reconstructed_slices_native_thickness)
+    std::cout << "Applying final slice thicknessing... " << std::endl;
+
+    GPUTimer gt;
+
+    gt.tic();
+    
+    // Allocate the final reconstruction array
+    cudaError_t cuda_status;
+    float * d_recon_final;
+    cuda_status = cudaMalloc(&d_recon_final,m_rp.nx * m_rp.ny * m_slice_locations_requested_slice_width.size() * sizeof(float));
+    gpuErrChk(cuda_status);
+
+
+    float * d_slice_locations_requested_slice_width;
+    cuda_status = cudaMalloc(&d_slice_locations_requested_slice_width,m_slice_locations_requested_slice_width.size()*sizeof(float));
+    gpuErrChk(cuda_status);
+
+    cuda_status = cudaMemcpy(d_slice_locations_requested_slice_width,&m_slice_locations_requested_slice_width[0],m_slice_locations_requested_slice_width.size()*sizeof(float),cudaMemcpyHostToDevice);
+    gpuErrChk(cuda_status);
+
+    dim3 thicken_threads(32,32,1);
+    dim3 thicken_blocks(m_rp.nx / thicken_threads.x,
+                        m_rp.ny / thicken_threads.y,
+                        m_slice_locations_requested_slice_width.size() / thicken_threads.z);
+
+    thicken_slices<<<thicken_blocks,thicken_threads>>>(m_d_reconstruction_collimated_slice_width,
+                                                       d_recon_final,
+                                                       m_d_slice_locations_collimated_slice_width,
+                                                       d_slice_locations_requested_slice_width);
+    gpuErrChk(cudaPeekAtLastError());
+
+    // Copy data back from the GPU
+    int n_slices = m_slice_locations_requested_slice_width.size();
+    m_reconstructed_data.resize(m_rp.nx * m_rp.ny * n_slices);
+    cuda_status = cudaMemcpy((void*)&m_reconstructed_data[0],d_recon_final,m_rp.nx * m_rp.ny * n_slices*sizeof(float),cudaMemcpyDeviceToHost);
+    gpuErrChk(cuda_status);
+
+    gt.toc();
+
+    // Free the remaining GPU arrays
+    cudaFree(d_recon_final);
+    cudaFree(d_slice_locations_requested_slice_width);
+    cudaFree(m_d_reconstruction_collimated_slice_width);
+    cudaFree(m_d_slice_locations_collimated_slice_width);
+
   }
 
+  void ReconstructionMachine::SaveReconstruction(std::string filepath){
+
+    // If unset, read from the configuration file settings
+    // (This may be super bad UI design, but oh well.  I'll
+    // wait for someone to complain.)
+    std::string output_filepath;
+    if (filepath==""){
+      std::string output_filepath(m_rp.output_dir);
+      output_filepath = output_filepath + "/" + m_rp.output_file;  
+    }
+    else{
+      output_filepath = filepath;
+    }
+      
+    std::cout << "Saving reconstructed data to " << output_filepath << std::endl;
+    
+    std::ofstream output_fid(output_filepath,std::ios::binary);
+    output_fid.write((char *)&m_reconstructed_data[0],m_reconstructed_data.size()*sizeof(float));
+    
+  };
+      
   void ReconstructionMachine::PrintCTGeometry(){
     std::cout << "CT Geometry and Scan derived parameters: "   << std::endl;
     std::cout << "===========================================" << std::endl;

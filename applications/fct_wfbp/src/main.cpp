@@ -63,6 +63,7 @@ int main(int argc, char ** argv){
   rm.ConfigureCTGeometry();
   rm.PrintCTGeometry();
   rm.RunReconstruction();
+  rm.SaveReconstruction("reconstruction.dat");
   
   //////// Get our reconstruction parameters from the configuration file
   ////ReconConfig rp;

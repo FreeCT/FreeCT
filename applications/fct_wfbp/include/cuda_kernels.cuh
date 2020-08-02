@@ -262,5 +262,38 @@ __global__ void backproject_kernel(float * d_projection_data,
   
 }
 
+__global__ void thicken_slices(float * d_recon_native_thickness,
+                               float * d_recon_requested_thickness,
+                               float * d_slice_locations_native,
+                               float * d_slice_locations_requested){
+
+  // Index over the ouput array
+  int x_idx = threadIdx.x + blockDim.x*blockIdx.x;
+  int y_idx = threadIdx.y + blockDim.y*blockIdx.y;
+  int slice_idx = threadIdx.z + blockDim.z*blockIdx.z;
+
+  float curr_slice_location = d_slice_locations_requested[slice_idx];
+
+  float pixel_val = 0.0f;
+  float weight_sum = 0.0f;
+  for (int i=0;i<d_gpu_precompute.n_slices_native;i++){
+  
+    float weight = fmaxf(0.0f,1.0f - fabsf(d_slice_locations_native[i] - curr_slice_location)/d_rp.slice_thickness);
+    
+    if (weight==0.0f)
+      continue;
+    
+    weight_sum += weight;
+    
+    int in_idx = x_idx + (y_idx * d_rp.nx) + (i * d_rp.nx * d_rp.ny);
+    pixel_val += weight * d_recon_native_thickness[in_idx];
+  }
+
+  int out_idx = x_idx + (y_idx * d_rp.nx) + (slice_idx * d_rp.nx * d_rp.ny);
+  d_recon_requested_thickness[out_idx] = pixel_val/weight_sum;
+  //d_recon_requested_thickness[out_idx] = pixel_val/d_gpu_precompute.n_slices_native;
+  
+}
+
 
 #endif // __CUDA_KERNELS_H__
