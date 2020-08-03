@@ -2,7 +2,9 @@
 
 **Current status (2020/08/02):**  WFBP is running for GE studies.  Additionally, I have rewritten the bulk of FreeCT in such a way that it now runs significantly faster than the previous version, with significantly simplified code.  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
 
-A couple of remaining issues:
+Remaining issues:
+* Need to add adaptive filtration back into the toolbox
+* Need to write a basic how-to for using FreeCT
 * HU scaling is not working properly yet (likely related to scaling occurring in the filter and/or backprojection),
 * We have used a kluge in the backprojection kernel to get the TCIA geometry specification to match the WFBP geometry specification, however we should do away with this approach for a final release.
 
