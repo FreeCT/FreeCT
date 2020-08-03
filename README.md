@@ -1,11 +1,10 @@
 # FreeCT
 
-**Current status (2020/07/17):**  WFPB is "working" for GE data... mostly.  The tube start angle is not being configured correctly so reconstructions end up rotated at odd angles depending on the reconstructed slices (visible in the sample image below.)  I am working on this, however I do not have an estimate on how long the fix may take.  After I resolve this, I will work to address the Siemens data, and then move on to broader FreeCT updates.
+**Current status (2020/08/02):**  WFBP is running for GE studies.  Additionally, I have rewritten the bulk of FreeCT in such a way that it now runs significantly faster than the previous version, with significantly simplified code.  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
 
-### Sample TCIA Reconstructed Slice (2020/07/17)
+### Sample TCIA Reconstructed Slices (2020/08/02)
 
-![sample_slice](resources/ge_sample_20200717.png)
-
+![sample_slice](resources/ge_tile.png)
 
 FreeCT is open source reconstruction software for clinical 3rd generation, fan-beam CT.
 
@@ -99,11 +98,10 @@ Timeline for work: 2 weeks - 1 month
 * Migrate all project components (Reader, WFBP, ICD) into a single repository (this repository) with a unified build process (**done**)
 * Any required modifications to the reconstruction process b/c of new input structures (*in progress*)
   * On-the-fly generation of filter kernels required to reconstruct GE, replace old file-based system (**done** and validated!)
-  * Debugging on GE data (*nearly completed*)
-  * Debugging on Siemens data
-* Set up a continuous integration system to keep users up to date on build status of FreeCT components
+  * Debugging on GE data (**done**)
+  * Debugging on Siemens data (*in progress*)
 
-(updated on 2020/07/17)
+(updated on 2020/08/02)
 
 ## Mid-term work to improve FreeCT usability
 Larger, project-level restructuring to make downloading, building, and installing required FreeCT components easier.  This will necessitate a license change (likely going to Apache 2.0 license.)
@@ -114,6 +112,7 @@ Timeline for work: 2 - 6 months
 * Convert filtering in WFBP to use CuFFTW
 * Unified configuration file structure/parsing framework
 * Packaging of the project Ubuntu (and potentially other high-use OSes)
+* Set up a continuous integration system to keep users up to date on build status of FreeCT components
 
 (updated on 2020/07/06)
 
