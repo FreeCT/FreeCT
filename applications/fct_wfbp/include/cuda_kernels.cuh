@@ -37,8 +37,8 @@ __global__ void multiply_filter(cufftComplex * row_sheet_fourier_domain, cufftCo
   float c = row_sheet_fourier_domain[idx].x;
   float d = row_sheet_fourier_domain[idx].y;
   
-  row_sheet_fourier_domain[idx].x = a*c - b*d;
-  row_sheet_fourier_domain[idx].y = a*d + b*c;
+  row_sheet_fourier_domain[idx].x = (1.0f/d_cg.num_detector_cols)*(a*c - b*d); 
+  row_sheet_fourier_domain[idx].y = (1.0f/d_cg.num_detector_cols)*(a*d + b*c);
 }
 
 __global__ void reshape_rebin_into_final_array(float * d_final_projection_array, float * d_filtered_row_sheet, int row_idx){
@@ -51,7 +51,7 @@ __global__ void reshape_rebin_into_final_array(float * d_final_projection_array,
   d_final_projection_array[out_idx] = d_filtered_row_sheet[in_idx];
 }
 
-#define Q 0.6
+#define Q 0.6f
 __device__ float W(float q){
   float wq;
   q = fabs(q);
@@ -84,7 +84,7 @@ __global__ void backproject_kernel_naive(float * d_projection_data,
 
   float x_loc = (x_idx - 0.5f*(d_rp.nx -1.0f))*d_rp.recon_fov/d_rp.nx + d_rp.x_origin; // Could be moved to a memory-operation (i.e. reduce FMA)
   float y_loc = (y_idx - 0.5f*(d_rp.ny -1.0f))*d_rp.recon_fov/d_rp.ny + d_rp.y_origin; // Could be moved to a memory-operation (i.e. reduce FMA)
-  float z_loc = d_slice_locations[slice_idx]; // GLOBAL READ                           
+  float z_loc = d_slice_locations[slice_idx]; // GLOBAL READ
 
   // Precalculate a "constants" structure to reduce the number of multiplications required in kernel
   // 0.5*acquisition_fov = half_acquisition_fov;
@@ -158,7 +158,7 @@ __global__ void backproject_kernel_naive(float * d_projection_data,
     
     // After looping over all half angles, add the result back to the slice data
     int pixel_idx = x_idx + (y_idx * d_rp.nx) + (slice_idx * d_rp.nx * d_rp.ny);
-    d_reconstruction_data[pixel_idx] += (1.0f/normalization_factor) * backprojected_value;
+    d_reconstruction_data[pixel_idx] += (2.0f*3.1415926f/d_cg.projections_per_rotation)*(1.0f/normalization_factor) * backprojected_value;
     
   }
   
@@ -250,13 +250,12 @@ __global__ void backproject_kernel(float * d_projection_data,
   
       float WEIGHT = W(q_hat);
       backprojected_value += WEIGHT*interpolated_value;
-      normalization_factor += WEIGHT;
-      
+      normalization_factor += WEIGHT; 
     }
     
     // After looping over all half angles, add the result back to the slice data
     int pixel_idx = x_idx + (y_idx * d_rp.nx) + (slice_idx * d_rp.nx * d_rp.ny);
-    d_reconstruction_data[pixel_idx] += (1.0f/normalization_factor) * backprojected_value;
+    d_reconstruction_data[pixel_idx] += d_gpu_precompute.two_pi_over_projections_per_rotation * (1.0f/normalization_factor) * backprojected_value;
     
   }
   

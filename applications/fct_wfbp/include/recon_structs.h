@@ -9,7 +9,9 @@ struct CTGeometry{
   float detector_pixel_size_col;//
   float detector_pixel_size_row;//
   size_t num_detector_cols; // "Channels" //
+  size_t num_detector_cols_padded; // 
   size_t num_detector_rows;//
+  size_t num_detector_rows_padded; // 
   float detector_central_col;//
   float detector_central_row;//
   float distance_source_to_detector;//
@@ -58,6 +60,7 @@ struct GPUPrecompute{
   float recip_distance_source_to_isocenter;
   float tanf_theta_cone;
   float pixel_scale;
+  float two_pi_over_projections_per_rotation;
 
   int n_slices_native;
   int n_slices_requested;
@@ -74,6 +77,8 @@ struct GPUPrecompute{
     recip_distance_source_to_isocenter   = 1.0f/cg.distance_source_to_isocenter;
     tanf_theta_cone                      = tan(cg.theta_cone/2.0f);
     pixel_scale                          = cg.distance_source_to_detector/(cg.distance_source_to_isocenter*cg.detector_pixel_size_col);
+    two_pi_over_projections_per_rotation = 2.0f*3.1415926535897f/cg.projections_per_rotation; 
+    
   }
   
 };

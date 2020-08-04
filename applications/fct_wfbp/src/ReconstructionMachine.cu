@@ -14,6 +14,11 @@
 
 namespace{
   cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 1.0f);
+
+  inline int find_next_of_two(int val){
+    return ceil(log(val)/log(2));
+  }
+  
 }
 
 namespace fct{
@@ -42,10 +47,12 @@ namespace fct{
     // Physical geometry of the scanner (cannot change from scan to scan)
     m_cg.total_number_of_projections  = m_org_data_set->getTotalNumProjections();
     m_cg.projections_per_rotation     = m_org_data_set->getProjectionsPerRotation();
-    m_cg.detector_pixel_size_col     = m_org_data_set->getDetectorTransverseSpacing();
-    m_cg.detector_pixel_size_row     = m_org_data_set->getDetectorAxialSpacing();
+    m_cg.detector_pixel_size_col      = m_org_data_set->getDetectorTransverseSpacing();
+    m_cg.detector_pixel_size_row      = m_org_data_set->getDetectorAxialSpacing();
     m_cg.num_detector_cols            = m_org_data_set->getDetectorChannels();
+    m_cg.num_detector_cols_padded     = pow(2.0,ceil(log((float)(2*m_org_data_set->getDetectorChannels()))/log(2.0f)));
     m_cg.num_detector_rows            = m_org_data_set->getDetectorRows();
+    m_cg.num_detector_rows_padded     = 2*m_org_data_set->getDetectorRows();
     m_cg.detector_central_col         = m_org_data_set->getDetectorCentralChannel();
     m_cg.detector_central_row         = m_org_data_set->getDetectorCentralRow();
     m_cg.distance_source_to_isocenter = m_org_data_set->getDistSourceToIsocenter(); 
@@ -438,7 +445,9 @@ namespace fct{
     std::cout << "===========================================" << std::endl;
     std::cout << "Num projections per turn:           "        << m_cg.projections_per_rotation     << std::endl;
     std::cout << "Num detector channels:              "        << m_cg.num_detector_cols            << std::endl;
+    std::cout << "Num detector channels padded:       "        << m_cg.num_detector_cols_padded     << std::endl;
     std::cout << "Num detector rows:                  "        << m_cg.num_detector_rows            << std::endl;
+    std::cout << "Num detector rows padded:           "        << m_cg.num_detector_rows_padded     << std::endl;
     std::cout << "Radius src->isocenter (mm):         "        << m_cg.distance_source_to_isocenter << std::endl;
     std::cout << "Radius src->detector (mm):          "        << m_cg.distance_source_to_detector  << std::endl;
     std::cout << "Table feed per rotation (mm):       "        << m_cg.z_rot                        << std::endl;
@@ -463,7 +472,7 @@ namespace{
 
     // Calculate the filter
     float pi_f = 3.141592653589f;
-    float ds = cg.detector_pixel_size_col;
+    float ds = cg.detector_pixel_size_col * cg.distance_source_to_isocenter/cg.distance_source_to_detector;
   
     auto r = [](float t)->float{
                float v = sin(t)/t + (cos(t)-1.0f)/(t*t);
@@ -477,7 +486,7 @@ namespace{
     for (int i=-N/2;i<N/2;i++){    
       h_filter.get()[i+N/2] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
                                                  (((1.0f-a)/2.0f)*r(pi_f*c*i + pi_f)) +
-                                                 (((1.0f -a)/2.0f)*r(pi_f*c*i-pi_f)));
+                                                 (((1.0f-a)/2.0f)*r(pi_f*c*i - pi_f)));
     }
 
     // Apply the "fftshift" operation
