@@ -13,7 +13,7 @@
 #include <cufft.h>
 
 namespace{
-  cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 1.0f);
+  cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 0.54f);
 
   inline int find_next_of_two(int val){
     return ceil(log(val)/log(2));
@@ -50,7 +50,8 @@ namespace fct{
     m_cg.detector_pixel_size_col      = m_org_data_set->getDetectorTransverseSpacing();
     m_cg.detector_pixel_size_row      = m_org_data_set->getDetectorAxialSpacing();
     m_cg.num_detector_cols            = m_org_data_set->getDetectorChannels();
-    m_cg.num_detector_cols_padded     = pow(2.0,ceil(log((float)(2*m_org_data_set->getDetectorChannels()))/log(2.0f)));
+    m_cg.num_detector_cols_padded     = 2*m_org_data_set->getDetectorChannels();
+    m_cg.num_detector_cols_padded_fft = pow(2.0,ceil(log((float)(2*m_org_data_set->getDetectorChannels()))/log(2.0f)));
     m_cg.num_detector_rows            = m_org_data_set->getDetectorRows();
     m_cg.num_detector_rows_padded     = 2*m_org_data_set->getDetectorRows();
     m_cg.detector_central_col         = m_org_data_set->getDetectorCentralChannel();
@@ -164,7 +165,7 @@ namespace fct{
 
     m_cg.detector_central_col = m_cg.detector_central_col;
 
-    // Allocate our GPU arrays
+    // Allocate texture for raw sheet to be copied into
     cudaError_t gpu_status;
   
     cudaChannelFormatDesc channelDesc=cudaCreateChannelDesc<float>();
@@ -177,11 +178,19 @@ namespace fct{
     tex_row_sheet.addressMode[2] = cudaAddressModeClamp;
     tex_row_sheet.filterMode     = cudaFilterModeLinear;
     tex_row_sheet.normalized     = false;
-  
+
+    // Allocate the sheet that will receive the rebinned data
     float * d_row_sheet_rebin;
-    gpu_status = cudaMalloc(&d_row_sheet_rebin,m_cg.num_detector_cols*m_cg.total_number_of_projections*sizeof(float));
+    gpu_status = cudaMalloc(&d_row_sheet_rebin,m_cg.num_detector_cols_padded_fft*m_cg.total_number_of_projections*sizeof(float));
     gpuErrChk(gpu_status);
-  
+    gpu_status = cudaMemset(d_row_sheet_rebin,0,m_cg.num_detector_cols_padded_fft*m_cg.total_number_of_projections*sizeof(float));
+    gpuErrChk(gpu_status);
+
+    // Allocate the array we'll reshape our final, rebinned, filtered data into and pass to backprojection
+    gpu_status  = cudaMalloc(&m_d_filtered_projection_data,m_cg.num_detector_cols*m_cg.num_detector_rows*m_cg.total_number_of_projections*sizeof(float));
+    gpuErrChk(gpu_status);
+
+    // Copy our broadcast structures over to GPU
     gpu_status = cudaMemcpyToSymbol(d_cg,&m_cg,sizeof(struct CTGeometry),0,cudaMemcpyHostToDevice);
     gpuErrChk(gpu_status);
   
@@ -189,11 +198,6 @@ namespace fct{
     gpuErrChk(gpu_status);
 
     gpu_status = cudaMemcpyToSymbol(d_gpu_precompute,&m_gpu_precompute,sizeof(struct GPUPrecompute),0,cudaMemcpyHostToDevice);
-    gpuErrChk(gpu_status);
-
-    // Allocate the array we'll reshape our final, rebinned, filtered data
-    // into and pass to backprojection
-    gpu_status  = cudaMalloc(&m_d_filtered_projection_data,m_cg.num_detector_cols*m_cg.num_detector_rows*m_cg.total_number_of_projections*sizeof(float));
     gpuErrChk(gpu_status);
     
     // Create our filter (on device, ready to be multiplied against our data)
@@ -205,7 +209,7 @@ namespace fct{
     cufftHandle plan_reverse;
   
     int RANK  = 1;
-    int NX    = m_cg.num_detector_cols;
+    int NX    = m_cg.num_detector_cols_padded_fft;
     int BATCH = m_cg.total_number_of_projections;
 
     cufft_status = cufftPlanMany(&plan_forward,RANK,&NX,
@@ -247,7 +251,8 @@ namespace fct{
 
       // Run rebinning kernel
       dim3 rebin_threads(8,8);
-      dim3 rebin_blocks(m_cg.num_detector_cols/rebin_threads.x,m_cg.total_number_of_projections/rebin_threads.y);
+      //dim3 rebin_blocks(m_cg.num_detector_cols/rebin_threads.x,m_cg.total_number_of_projections/rebin_threads.y);
+      dim3 rebin_blocks(m_cg.num_detector_cols_padded_fft/rebin_threads.x,m_cg.total_number_of_projections/rebin_threads.y);
       rebin_kernel<<<rebin_blocks,rebin_threads>>>(d_row_sheet_rebin);
       gpuErrChk(cudaPeekAtLastError());
 
@@ -256,8 +261,17 @@ namespace fct{
       cufftErrChk(cufft_status);
       cudaDeviceSynchronize();
 
-      dim3 filter_threads(fft_output_size,1);
-      dim3 filter_blocks(1,m_cg.total_number_of_projections/filter_threads.y);
+
+      int channel_threads = fft_output_size;
+      if (channel_threads>1024){
+        channel_threads = 512;
+      }
+      dim3 filter_threads(channel_threads,1);
+      dim3 filter_blocks(ceil((float)fft_output_size/(float)channel_threads),m_cg.total_number_of_projections/filter_threads.y);
+      std::cout << fft_output_size << std::endl;
+      std::cout << filter_blocks.x << std::endl;
+      std::cout << m_cg.total_number_of_projections/filter_threads.y << std::endl;
+      
       multiply_filter<<<filter_blocks,filter_threads>>>(d_sheet_data_fourier_domain,d_filter);
       gpuErrChk(cudaPeekAtLastError());
       cudaDeviceSynchronize();
@@ -446,6 +460,7 @@ namespace fct{
     std::cout << "Num projections per turn:           "        << m_cg.projections_per_rotation     << std::endl;
     std::cout << "Num detector channels:              "        << m_cg.num_detector_cols            << std::endl;
     std::cout << "Num detector channels padded:       "        << m_cg.num_detector_cols_padded     << std::endl;
+    std::cout << "Num detector channels padded fft:   "        << m_cg.num_detector_cols_padded_fft << std::endl;
     std::cout << "Num detector rows:                  "        << m_cg.num_detector_rows            << std::endl;
     std::cout << "Num detector rows padded:           "        << m_cg.num_detector_rows_padded     << std::endl;
     std::cout << "Radius src->isocenter (mm):         "        << m_cg.distance_source_to_isocenter << std::endl;
@@ -468,7 +483,8 @@ namespace{
     std::cout << "Generating filter" << std::endl;
 
     // Allocate the host filter
-    std::shared_ptr<float> h_filter(new float[cg.num_detector_cols]);
+    //std::shared_ptr<float> h_filter(new float[cg.num_detector_cols]);
+    std::vector<float> h_filter(cg.num_detector_cols_padded_fft);
 
     // Calculate the filter
     float pi_f = 3.141592653589f;
@@ -481,19 +497,19 @@ namespace{
                return v;
              };
 
-    int N = cg.num_detector_cols;
+    int N = cg.num_detector_cols_padded_fft;
   
     for (int i=-N/2;i<N/2;i++){    
-      h_filter.get()[i+N/2] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
+      h_filter[i+N/2] = (c*c/(2.0f*ds)) * (a*r(c*pi_f*i) +
                                                  (((1.0f-a)/2.0f)*r(pi_f*c*i + pi_f)) +
                                                  (((1.0f-a)/2.0f)*r(pi_f*c*i - pi_f)));
     }
 
     // Apply the "fftshift" operation
     for (int i=0; i<N/2;i++){
-      float tmp = h_filter.get()[i];   
-      h_filter.get()[i]     = h_filter.get()[i+N/2];
-      h_filter.get()[i+N/2] = tmp;
+      float tmp = h_filter[i];   
+      h_filter[i]     = h_filter[i+N/2];
+      h_filter[i+N/2] = tmp;
     }
   
     // Send to device
@@ -501,15 +517,15 @@ namespace{
     cufftResult cufft_status;
   
     float * d_filter;
-    cuda_status = cudaMalloc(&d_filter,cg.num_detector_cols*sizeof(float));
+    cuda_status = cudaMalloc(&d_filter,cg.num_detector_cols_padded_fft*sizeof(float));
     gpuErrChk(cuda_status);
 
-    cuda_status = cudaMemcpy(d_filter,h_filter.get(),cg.num_detector_cols*sizeof(float),cudaMemcpyHostToDevice);
+    cuda_status = cudaMemcpy(d_filter,&h_filter[0],cg.num_detector_cols_padded_fft*sizeof(float),cudaMemcpyHostToDevice);
     gpuErrChk(cuda_status);
 
     // Take the FFT to get it into the Fourier domain, and return pointer to the complex FFT array
     cufftHandle plan;
-    cufft_status = cufftPlan1d(&plan,cg.num_detector_cols,CUFFT_R2C,1);
+    cufft_status = cufftPlan1d(&plan,cg.num_detector_cols_padded_fft,CUFFT_R2C,1);
     cufftErrChk(cufft_status);
     
     cufftComplex * d_filter_final;
