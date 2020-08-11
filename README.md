@@ -8,7 +8,7 @@ Remaining issues:
 * ~~HU scaling is not working properly yet (likely related to scaling occurring in the filter and/or backprojection),~~
 * We have used a kluge in the backprojection kernel to get the TCIA geometry specification to match the WFBP geometry specification, however we should do away with this approach for a final release.
 
-### Sample TCIA Reconstructed Slices (2020/08/02)
+### Sample TCIA Reconstructed Slices (2020/08/11)
 
 ![sample_slice](resources/ge_tile.png)
 
