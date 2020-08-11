@@ -1,6 +1,6 @@
 # FreeCT
 
-**Current status (2020/08/02):**  WFBP is still now running for GE studies!  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
+**Current status (2020/08/11):**  WFBP is still now running for GE studies!  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
 
 Remaining issues:
 * Need to add adaptive filtration back into the toolbox
