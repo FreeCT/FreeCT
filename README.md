@@ -1,11 +1,11 @@
 # FreeCT
 
-**Current status (2020/08/02):**  WFBP is still only mostly running for GE studies (geometry largely worked out, sampling properties could still use a little bit of work), however I have rewritten the bulk of FreeCT in such a way that it now runs significantly faster than the previous version, with significantly simplified code.  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
+**Current status (2020/08/02):**  WFBP is still now running for GE studies!  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
 
 Remaining issues:
 * Need to add adaptive filtration back into the toolbox
 * Need to write a basic how-to for using FreeCT
-* HU scaling is not working properly yet (likely related to scaling occurring in the filter and/or backprojection),
+* ~~HU scaling is not working properly yet (likely related to scaling occurring in the filter and/or backprojection),~~
 * We have used a kluge in the backprojection kernel to get the TCIA geometry specification to match the WFBP geometry specification, however we should do away with this approach for a final release.
 
 ### Sample TCIA Reconstructed Slices (2020/08/02)
@@ -42,7 +42,6 @@ FreeCT depends on several external packages:
 * [DCMTK](https://dcmtk.org/) for DICOM support
 * [YAML-cpp](https://github.com/jbeder/yaml-cpp) for YAML parsing 
 * [Boost](https://www.boost.org/)
-* [FFTW3](http://fftw.org/) 
 * [Eigen 3](https://eigen.tuxfamily.org/index.php?title=Main_Page)
 * [NVidia CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit)
 
@@ -51,7 +50,7 @@ The easiest way to install these is via your system package manager.
 On Ubuntu 18.04:
 
 ```bash
-sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libfftw3-dev libeigen3-dev nvidia-cuda-toolkit
+sudo apt install libdcmtk-dev libyaml-cpp-dev libboost-all-dev libeigen3-dev nvidia-cuda-toolkit
 ```
 *If you run into CMake error messages regarding FFTW3 not being found, please skip to the end of this section and manually install FFTW3 rather than using the package manager.*
 
@@ -76,21 +75,6 @@ make -j5 fct_icd  # NOT BUILDING
 ```
 
 We will do our best to add support for other platforms (or please create a pull request if you would like to add instructions on installing dependencies for other platforms)
-
-### Problems with FFTW3?
-For some reason the Ubuntu package manager install of FFTW3 does not add the configuration files that allow us to use CMake's find_package() directive, which we use to properly configure the linker for FreeCT.  The workaround here is to manually install FFTW3 from the source code using CMake.  
-
-```bash
-cd ~/Downloads
-wget http://fftw.org/fftw-3.3.8.tar.gz
-tar -xvf fftw-3.3.8.tar.gz
-cd fftw-3.3.8
-mkdir build && cd build
-cmake ../
-sudo make install
-```
-
-I don't believe many folks use the CPU version of WFBP (which FFTW is used for), so I will likely move the files to their own project which is not built by default and then remove them in the future at some point (barring an unexpected uproar to keep them).  
 
 # Planned Development work for FreeCT
 ## Near-term work to enable use on TCIA datasets:
