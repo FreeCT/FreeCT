@@ -21,14 +21,21 @@ __global__ void rebin_kernel(float * output){
   
   float beta_idx  = (beta*d_cg.distance_source_to_detector/d_cg.detector_pixel_size_col) + d_cg.detector_central_col;
   float alpha_idx = alpha/delta_theta;
-
+  
   // ORG Implementation
   //int out_idx = channel_idx + proj_idx*d_cg.num_detector_cols;
   //output[out_idx] = tex2D(tex_row_sheet, beta_idx + 0.5f, alpha_idx + 0.5);
   
   int channel_offset = (d_cg.num_detector_cols_padded_fft - d_cg.num_detector_cols)/2;
   int out_idx = (channel_idx+channel_offset)  + proj_idx*(d_cg.num_detector_cols_padded_fft);
-  output[out_idx] = tex2D(tex_row_sheet, beta_idx + 0.5f, alpha_idx + 0.5);
+
+  if (beta_idx < 0 || beta_idx >= d_cg.num_detector_cols || isnan(beta_idx)){
+    output[out_idx] = 0.0f;
+  }
+  else{
+    output[out_idx] = tex2D(tex_row_sheet, beta_idx + 0.5f, alpha_idx + 0.5);
+  }
+
 }
 
 __global__ void multiply_filter(cufftComplex * row_sheet_fourier_domain, cufftComplex * filter){

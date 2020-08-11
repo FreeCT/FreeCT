@@ -1,5 +1,7 @@
 #include <util.h>
 #include <iostream>
+#include <string>
+#include <fstream>
 
 bool validate_selected_device(int cuda_device){
 
@@ -30,4 +32,14 @@ bool validate_selected_device(int cuda_device){
   }
   
   return true;
+}
+
+void debug_save_cuda_array(float * device_array, size_t num_bytes, std::string filepath){
+
+  float * h_array;
+  h_array = (float*)malloc(num_bytes);
+  cudaMemcpy(h_array,device_array,num_bytes,cudaMemcpyDeviceToHost);
+
+  std::ofstream fid(filepath,std::ios::binary);
+  fid.write((char*)h_array,num_bytes);
 }

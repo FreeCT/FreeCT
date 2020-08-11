@@ -13,7 +13,7 @@
 #include <cufft.h>
 
 namespace{
-  cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 0.54f);
+  cufftComplex * generate_filter(CTGeometry cg, float c = 1.0f, float a = 1.0f);
 
   inline int find_next_of_two(int val){
     return ceil(log(val)/log(2));
@@ -256,11 +256,13 @@ namespace fct{
       rebin_kernel<<<rebin_blocks,rebin_threads>>>(d_row_sheet_rebin);
       gpuErrChk(cudaPeekAtLastError());
 
+      //debug_save_cuda_array(d_row_sheet_rebin,m_cg.num_detector_cols_padded_fft*m_cg.total_number_of_projections*sizeof(float),"/tmp/row_sheet.dat");
+      //exit(1);
+      
       // Filter the rebinned data
       cufft_status = cufftExecR2C(plan_forward,(cufftReal*)d_row_sheet_rebin,d_sheet_data_fourier_domain);
       cufftErrChk(cufft_status);
       cudaDeviceSynchronize();
-
 
       int channel_threads = fft_output_size;
       if (channel_threads>1024){
@@ -268,9 +270,6 @@ namespace fct{
       }
       dim3 filter_threads(channel_threads,1);
       dim3 filter_blocks(ceil((float)fft_output_size/(float)channel_threads),m_cg.total_number_of_projections/filter_threads.y);
-      std::cout << fft_output_size << std::endl;
-      std::cout << filter_blocks.x << std::endl;
-      std::cout << m_cg.total_number_of_projections/filter_threads.y << std::endl;
       
       multiply_filter<<<filter_blocks,filter_threads>>>(d_sheet_data_fourier_domain,d_filter);
       gpuErrChk(cudaPeekAtLastError());
@@ -289,6 +288,7 @@ namespace fct{
       dim3 reshape_blocks(1,m_cg.total_number_of_projections/filter_threads.y);
       reshape_rebin_into_final_array<<<reshape_blocks,reshape_threads>>>(m_d_filtered_projection_data,d_row_sheet_rebin,i);
       gpuErrChk(cudaPeekAtLastError());
+      
     }
     gt.toc();
 
