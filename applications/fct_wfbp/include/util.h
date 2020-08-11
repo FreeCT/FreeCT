@@ -21,3 +21,5 @@ private:
 };
 
 bool validate_selected_device(int device_idx);
+
+void debug_save_cuda_array(float * device_array, size_t num_bytes, std::string filepath);

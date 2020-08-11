@@ -9,7 +9,8 @@ struct CTGeometry{
   float detector_pixel_size_col;//
   float detector_pixel_size_row;//
   size_t num_detector_cols; // "Channels" //
-  size_t num_detector_cols_padded; // 
+  size_t num_detector_cols_padded; //
+  size_t num_detector_cols_padded_fft; // 
   size_t num_detector_rows;//
   size_t num_detector_rows_padded; // 
   float detector_central_col;//
