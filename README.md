@@ -2,7 +2,7 @@
 
 ## FreeCT has MOVED
 
-FreeCT's primary repository has been moved to GitLab (https://gitlab.com/freect/freect)[https://gitlab.com/freect/freect] and this repository will no longer be maintained.  Please check GitLab for the latest updates.
+FreeCT's primary repository has been moved to GitLab [https://gitlab.com/freect/freect](https://gitlab.com/freect/freect) and this repository will no longer be maintained.  Please check GitLab for the latest updates.
 
 This repo will be preserved since the URL has been published in various journal articles, but going forward please use GitLab.  Issues, request, etc. here will not be address.
 
@@ -24,7 +24,7 @@ FreeCT is open source reconstruction software for clinical 3rd generation, fan-b
 
 This repository comprises all of the FreeCT projects, including WFBP, ICD, and our reader library.  The other FreeCT repositories are no longer maintained.  
 
-I am in the process of converting this repository to run on the TCIA LDCT raw projection dataset (https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=52758026).
+I am in the process of converting this repository to run on the [TCIA LDCT raw projection dataset](https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=52758026).
 
 If you,
 
