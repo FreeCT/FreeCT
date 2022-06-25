@@ -1,6 +1,14 @@
 # FreeCT
 
-**Current status (2020/08/11):**  WFBP is still now running for GE studies!  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.  
+## FreeCT has MOVED
+
+FreeCT's primary repository has been moved to GitLab (https://gitlab.com/freect/freect)[https://gitlab.com/freect/freect] and this repository will no longer be maintained.  Please check GitLab for the latest updates.
+
+This repo will be preserved since the URL has been published in various journal articles, but going forward please use GitLab.  Issues, request, etc. here will not be address.
+
+## Previous update:
+
+WFBP is still now running for GE studies!  I will be confirming that each of the GE studies is successfully reconstructed over the coming week, and begin work to support the Siemens studies.
 
 Remaining issues:
 * Need to add adaptive filtration back into the toolbox
